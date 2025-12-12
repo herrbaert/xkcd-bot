@@ -28,7 +28,14 @@ def fetch_comic(num):
     if resp.status_code != 200:
         return None
 
-    return resp.json()
+    data = resp.json()
+    for key in ["year", "month", "day"]:
+      try:
+        data[key] = int(data.get(key, '0'))
+      except ValueError:
+        data[key] = None
+
+    return data
 
 def save_comic(doc):
     collection.update_one(
@@ -37,5 +44,19 @@ def save_comic(doc):
         upsert=True
     )
 
+def test():
+    latest_comic_number = get_latest_comic_number()
+    print(latest_comic_number)
+    latest_comic = fetch_comic(latest_comic_number)
+    print(latest_comic)
+
+    response = input("Möchtest du den Comic speichern? (j/n): ")
+    if response.lower() == 'j':
+        save_comic(latest_comic)
+        print("Comic gespeichert.")
+    else:
+        print("Comic nicht gespeichert.")
+
 if __name__ == "__main__":
     print("Setup fertig!")
+    test()
