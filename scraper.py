@@ -32,10 +32,10 @@ def fetch_comic(num):
 
     data = resp.json()
     for key in ["year", "month", "day"]:
-      try:
-        data[key] = int(data.get(key, '0'))
-      except ValueError:
-        data[key] = None
+        try:
+            data[key] = int(data.get(key, '0'))
+        except ValueError:
+            data[key] = None
 
     return data
 
