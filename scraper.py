@@ -149,7 +149,7 @@ def download_comics(
         start: int | None = None,
         end: int | None = None,
         resume: bool = True,
-        delay: float = 0.3
+        delay: float | None = None
     ):
     """Haupt-Download-Loop: lade Comics im Bereich [start, end] und speichere sie in der DB.
 
@@ -176,6 +176,8 @@ def download_comics(
         start = get_highest_stored_comic_number() + 1
     if end is None:
         end = get_latest_comic_number()
+    if delay is None:
+        delay = 0.3
 
     print(f"Downloading comics {start}..{end} (resume={resume}, delay={delay}s)")
     for num in range(start, end + 1):
@@ -209,38 +211,17 @@ def download_comics(
         time.sleep(delay)
 
 
-def test():
-    """Einfacher interaktiver Test, der das neueste Comic lädt und nach Speicherung fragt.
-
-    Diese Hilfsfunktion ist primär für Entwicklung/Debugging gedacht.
-    """
-    latest_comic_number = get_latest_comic_number()
-    print(latest_comic_number)
-    latest_comic = fetch_comic(latest_comic_number)
-    print(latest_comic)
-
-    response = input("Möchtest du den Comic speichern? (j/n): ")
-    if response.lower() == 'j':
-        save_comic(latest_comic)
-        print("Comic gespeichert.")
-    else:
-        print("Comic nicht gespeichert.")
-
-
 if __name__ == "__main__":
     # CLI: einfache Argumente um Download-Loop zu steuern oder den Test auszuführen.
     parser = argparse.ArgumentParser(description="xkcd scraper")
-    parser.add_argument("--download", action="store_true", help="Download a range of comics into the DB")
-    parser.add_argument("--start", type=int, default=1, help="Start comic number (inclusive)")
+    parser.add_argument("--start", type=int, help="Start comic number (inclusive). If omitted, uses next after highest in DB")
     parser.add_argument("--end", type=int, help="End comic number (inclusive). If omitted, uses latest comic")
     parser.add_argument("--no-resume", dest="resume", action="store_false", help="Do not skip comics already in DB")
-    parser.add_argument("--delay", type=float, default=0.5, help="Delay in seconds between requests")
+    parser.add_argument("--delay", type=float, help="Delay in seconds between requests")
     args = parser.parse_args()
 
     print("Setup fertig!")
-    if args.download:
-        # Download-Loop mit den übergebenen Optionen starten
-        download_comics(start=args.start, end=args.end, resume=args.resume, delay=args.delay)
-    else:
-        # Fallback: interaktiver Test
-        test()
+    # print(args)
+
+    # Download-Loop mit den übergebenen Optionen starten
+    download_comics(start=args.start, end=args.end, resume=args.resume, delay=args.delay)
