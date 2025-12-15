@@ -18,10 +18,13 @@ client = MongoClient(MONGO_URI)
 db = client[MONGO_DB]
 collection = db[MONGO_COLLECTION]
 
-def get_latest_comic_number():
+def get_latest_comic_number() -> int:
     resp = requests.get("https://xkcd.com/info.0.json")
     data = resp.json()
-    return data["num"]
+    num = data["num"]
+    if not num or not isinstance(num, int):
+        raise RuntimeError("Could not get latest comic number")
+    return num
 
 def fetch_comic(num):
     url = f"https://xkcd.com/{num}/info.0.json"
