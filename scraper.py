@@ -30,7 +30,7 @@ import time
 import argparse
 
 # .env laden (Pfad hier ist relativ zum Projekt; kann angepasst werden)
-load_dotenv('./.env')
+load_dotenv()
 
 # Konfigurationswerte aus der Umgebung lesen
 MONGO_URI = os.getenv("MONGO_URI")
@@ -132,11 +132,14 @@ def get_highest_stored_comic_number() -> int:
 def get_all_stored_comic_numbers() -> list[int]:
     return [doc["num"] for doc in collection.find({}, {"num": 1})]
 
-def get_all_comics_without_transcript() -> list[dict]:
-    return list(collection.find({"transcript": {"$in": [None, ""]}}, {"num": 1}))
+def get_all_comics_without_transcript() -> list[int]:
+    comic_nums = [doc["num"] for doc in collection.find({"transcript": {"$in": [None, ""]}}, {"num": 1})]
+    return comic_nums
 
 def get_transcript_for_comic(num: int) -> str:
     # TODO Implementieren: z.B. von explainxkcd.com holen
+    # base_url = f"https://www.explainxkcd.com/wiki/index.php/{num}"
+    # suche id "Transcript", dessen Eltern-Element und dann den folgenden Sibling-Elementen nach dem Text durchsuchen
     return ""
 
 def add_transcript_to_comic(num: int, transcript: str):
@@ -144,6 +147,17 @@ def add_transcript_to_comic(num: int, transcript: str):
         {"num": num},
         {"$set": {"transcript": transcript}}
     )
+
+def add_missing_transcripts():
+    comics = get_all_comics_without_transcript()
+    print(f"Found {len(comics)} comics without transcript")
+    for num in comics:
+        transcript = get_transcript_for_comic(num)
+        if transcript:
+            add_transcript_to_comic(num, transcript)
+            print(f"Added transcript to comic {num}")
+        else:
+            print(f"No transcript found for comic {num}")
 
 def download_comics(
         start: int | None = None,
