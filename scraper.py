@@ -137,10 +137,66 @@ def get_all_comics_without_transcript() -> list[int]:
     return comic_nums
 
 def get_transcript_for_comic(num: int) -> str:
-    # TODO Implementieren: z.B. von explainxkcd.com holen
-    # base_url = f"https://www.explainxkcd.com/wiki/index.php/{num}"
-    # suche id "Transcript", dessen Eltern-Element und dann den folgenden Sibling-Elementen nach dem Text durchsuchen
-    return ""
+    """Hole das Transcript für ein xkcd-Comic von explainxkcd.com.
+    
+    Verhalten:
+    - Ruft die Wiki-Seite für das Comic auf explainxkcd.com auf
+    - Sucht nach dem Element mit id="Transcript"
+    - Extrahiert den Text aus den folgenden Sibling-Elementen
+    
+    Parameter:
+    - num: Comic-Nummer (int)
+    
+    Rückgabewert:
+    - str: Das Transcript-Text oder leerer String wenn nicht gefunden
+    """
+    try:
+        from bs4 import BeautifulSoup
+        
+        base_url = f"https://www.explainxkcd.com/wiki/index.php/{num}"
+        resp = requests.get(base_url, timeout=10)
+        
+        if resp.status_code != 200:
+            return ""
+        
+        soup = BeautifulSoup(resp.content, 'html.parser')
+        
+        # Suche das Element mit id="Transcript"
+        transcript_heading = soup.find(id="Transcript")
+        
+        if not transcript_heading:
+            return ""
+        
+        # Das Element mit id="Transcript" ist ein <span> innerhalb eines <h2>
+        # Wir müssen das <h2> (Eltern-Element) finden
+        h2_element = transcript_heading.find_parent('h2')
+        
+        if not h2_element:
+            return ""
+        
+        # Hole das nächste Sibling-Element nach dem <h2>
+        # Dies sollte das <dl>-Element mit den <dd>-Einträgen sein
+        dl_element = h2_element.find_next_sibling()
+        
+        if not dl_element or dl_element.name != 'dl':
+            return ""
+        
+        # Sammle Text aus allen <dd>-Elementen innerhalb des <dl>
+        transcript_parts = []
+        dd_elements = dl_element.find_all('dd')
+        
+        for dd in dd_elements:
+            text = dd.get_text(strip=True)
+            if text:
+                transcript_parts.append(text)
+        
+        # Füge alle Teile zusammen
+        transcript = "\n".join(transcript_parts)
+        return transcript.strip()
+        
+    except Exception as exc:
+        print(f"Error fetching transcript for comic {num}: {exc}")
+        return ""
 
 def add_transcript_to_comic(num: int, transcript: str):
     collection.update_one(
