@@ -123,7 +123,34 @@ def save_comic(doc):
     )
 
 
-def download_comics(start: int = 1, end: int | None = None, resume: bool = True, delay: float = 0.5):
+def get_highest_stored_comic_number() -> int:
+    doc = collection.find_one(sort=[("num", -1)])
+    if doc:
+        return doc["num"]
+    return 0
+
+def get_all_stored_comic_numbers() -> list[int]:
+    return [doc["num"] for doc in collection.find({}, {"num": 1})]
+
+def get_all_comics_without_transcript() -> list[dict]:
+    return list(collection.find({"transcript": {"$in": [None, ""]}}, {"num": 1}))
+
+def get_transcript_for_comic(num: int) -> str:
+    # TODO Implementieren: z.B. von explainxkcd.com holen
+    return ""
+
+def add_transcript_to_comic(num: int, transcript: str):
+    collection.update_one(
+        {"num": num},
+        {"$set": {"transcript": transcript}}
+    )
+
+def download_comics(
+        start: int | None = None,
+        end: int | None = None,
+        resume: bool = True,
+        delay: float = 0.3
+    ):
     """Haupt-Download-Loop: lade Comics im Bereich [start, end] und speichere sie in der DB.
 
     Parameter:
@@ -144,6 +171,9 @@ def download_comics(start: int = 1, end: int | None = None, resume: bool = True,
     - Fehler beim Fetch oder Speichern fangen wir pro-Comic ab, so dass ein Einzelfehler die
       gesamte Operation nicht stoppt.
     """
+
+    if start is None:
+        start = get_highest_stored_comic_number() + 1
     if end is None:
         end = get_latest_comic_number()
 
@@ -164,6 +194,9 @@ def download_comics(start: int = 1, end: int | None = None, resume: bool = True,
             # Comic nicht vorhanden (404) o.ä. - überspringen
             print(f"{num}: not found or unavailable, skipping")
             continue
+
+        if "transcript" not in comic or comic["transcript"] in [None, ""]:
+            comic["transcript"] = get_transcript_for_comic(num)
 
         try:
             save_comic(comic)
