@@ -15,10 +15,11 @@ Anforderungen:
 """
 
 import os
-from typing import Optional
+from typing import Optional, List
+import re
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from pymongo import MongoClient
+from pymongo import MongoClient, TEXT
 from dotenv import load_dotenv
 
 # .env laden
@@ -37,6 +38,43 @@ client = MongoClient(MONGO_URI)
 db = client[MONGO_DB]
 collection = db[MONGO_COLLECTION]
 
+# Ensure a text index exists for efficient full-text search across relevant fields
+# We check existing indexes and only create/overwrite if requested via env var.
+TEXT_INDEX_NAME = os.getenv("TEXT_INDEX_NAME", "text")
+TEXT_INDEX_OVERWRITE = os.getenv("TEXT_INDEX_OVERWRITE", "false").lower() in ("1", "true", "yes")
+TEXT_INDEX_WEIGHTS = {"title": 5, "alt": 2, "transcript": 1}
+TEXT_INDEX_DEFAULT_LANGUAGE = os.getenv("TEXT_INDEX_DEFAULT_LANGUAGE", "english")
+
+def _ensure_text_index():
+    indexes = collection.index_information()
+    existing_text_index = None
+    for name, info in indexes.items():
+        for key, typ in info.get("key", []):
+            if typ == "text":
+                existing_text_index = name
+                break
+        if existing_text_index:
+            break
+
+    if existing_text_index:
+        if TEXT_INDEX_OVERWRITE:
+            print(f"Dropping existing text index '{existing_text_index}' and recreating as '{TEXT_INDEX_NAME}'")
+            collection.drop_index(existing_text_index)
+        else:
+            print(f"Text index already exists ('{existing_text_index}'), not recreating. Set TEXT_INDEX_OVERWRITE=1 to force.")
+            return
+
+    print(f"Creating text index '{TEXT_INDEX_NAME}' (fields: title, alt, transcript)")
+    collection.create_index(
+        [("title", TEXT), ("alt", TEXT), ("transcript", TEXT)],
+        name=TEXT_INDEX_NAME,
+        weights=TEXT_INDEX_WEIGHTS,
+        default_language=TEXT_INDEX_DEFAULT_LANGUAGE,
+    )
+
+# Ensure index at startup
+_ensure_text_index()
+
 # FastAPI App
 app = FastAPI(title="xkcd Comic API - MVP", version="0.1.0")
 
@@ -54,6 +92,8 @@ def clean_comic(doc):
     """Entfernt MongoDB _id Feld."""
     if doc:
         doc.pop("_id", None)
+        # Entferne evtl. Text-Score Metadaten, die bei $text-Projektion zurückkommen können
+        doc.pop("score", None)
     return doc
 
 
@@ -69,22 +109,22 @@ async def root():
 
 @app.get("/comics/search")
 async def search_comics(
-    q: str = Query(..., min_length=2, description="Suchbegriff"),
+    q: List[str] = Query(..., min_length=1, description="Suchbegriffe; mehrfach erlaubt (z.B. ?q=foo&q=bar)"),
     limit: int = Query(20, ge=1, le=100, description="Max. Ergebnisse")
 ):
     """
     Stichwortsuche in Comics (Titel, Alt-Text, Transcript).
     """
-    # Suche in Titel, Alt-Text und Transcript
-    query = {
-        "$or": [
-            {"title": {"$regex": q, "$options": "i"}},
-            {"alt": {"$regex": q, "$options": "i"}},
-            {"transcript": {"$regex": q, "$options": "i"}}
-        ]
-    }
+    # Verwende MongoDB $text-Suche über die vorher angelegte Text-Index
+    # q kann mehrfach übergeben werden (z.B. ?q=foo&q=bar) und wird zu einem Suchstring kombiniert.
+    search_string = " ".join(q)
+    # Projektiere den textScore und sortiere danach
+    cursor = collection.find(
+        {"$text": {"$search": search_string}},
+        {"score": {"$meta": "textScore"}}
+    ).sort([("score", {"$meta": "textScore"})]).limit(limit)
 
-    results = list(collection.find(query).sort("num", -1).limit(limit))
+    results = list(cursor)
     comics = [clean_comic(doc) for doc in results]
 
     return {
