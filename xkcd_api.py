@@ -83,10 +83,10 @@ async def search_comics(
             {"transcript": {"$regex": q, "$options": "i"}}
         ]
     }
-    
+
     results = list(collection.find(query).sort("num", -1).limit(limit))
     comics = [clean_comic(doc) for doc in results]
-    
+
     return {
         "query": q,
         "count": len(comics),
@@ -100,10 +100,10 @@ async def get_comic(num: int):
     Liefert ein spezifisches Comic nach Nummer.
     """
     comic = collection.find_one({"num": num})
-    
+
     if not comic:
         raise HTTPException(status_code=404, detail=f"Comic #{num} nicht gefunden")
-    
+
     return clean_comic(comic)
 
 
