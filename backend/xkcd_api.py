@@ -38,8 +38,8 @@ client = MongoClient(MONGO_URI)
 db = client[MONGO_DB]
 collection = db[MONGO_COLLECTION]
 
-# Ensure a text index exists for efficient full-text search across relevant fields
-# We check existing indexes and only create/overwrite if requested via env var.
+# Funktion, die sicherstellt, dass ein Text-Index existiert
+# Wir überprüfen vorhandene Indizes und erstellen/überschreiben nur, wenn über env var angefordert.
 TEXT_INDEX_NAME = os.getenv("TEXT_INDEX_NAME", "text")
 TEXT_INDEX_OVERWRITE = os.getenv("TEXT_INDEX_OVERWRITE", "false").lower() in ("1", "true", "yes")
 TEXT_INDEX_WEIGHTS = {"title": 5, "alt": 2, "transcript": 1}
@@ -48,6 +48,7 @@ TEXT_INDEX_DEFAULT_LANGUAGE = os.getenv("TEXT_INDEX_DEFAULT_LANGUAGE", "english"
 def _ensure_text_index():
     indexes = collection.index_information()
     existing_text_index = None
+    # Prüfe, ob bereits ein Text-Index existiert
     for name, info in indexes.items():
         for key, typ in info.get("key", []):
             if typ == "text":
@@ -64,6 +65,7 @@ def _ensure_text_index():
             print(f"Text index already exists ('{existing_text_index}'), not recreating. Set TEXT_INDEX_OVERWRITE=1 to force.")
             return
 
+    # Index fehlt oder wird überschrieben:
     print(f"Creating text index '{TEXT_INDEX_NAME}' (fields: title, alt, transcript)")
     collection.create_index(
         [("title", TEXT), ("alt", TEXT), ("transcript", TEXT)],
@@ -72,7 +74,7 @@ def _ensure_text_index():
         default_language=TEXT_INDEX_DEFAULT_LANGUAGE,
     )
 
-# Ensure index at startup
+# Text Index sicherstellen
 _ensure_text_index()
 
 # FastAPI App
@@ -117,6 +119,7 @@ async def search_comics(
     """
     # Verwende MongoDB $text-Suche über die vorher angelegte Text-Index
     # q kann mehrfach übergeben werden (z.B. ?q=foo&q=bar) und wird zu einem Suchstring kombiniert.
+    # Beispiel: q=["foo", "bar"] -> search_string="foo bar"
     search_string = " ".join(q)
     # Projektiere den textScore und sortiere danach
     cursor = collection.find(
