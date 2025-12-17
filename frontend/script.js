@@ -6,6 +6,7 @@ const resultsDiv = document.getElementById("results");
 const resultsInfo = document.getElementById("resultsInfo");
 const loadingDiv = document.getElementById("loading");
 const errorBox = document.getElementById("errorBox");
+const randomButton = document.getElementById("randomButton");
 
 searchForm.addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -51,6 +52,33 @@ async function searchComics(query) {
   }
 }
 
+async function fetchRandomComic() {
+  // Reset
+  resultsDiv.innerHTML = "";
+  resultsInfo.textContent = "";
+  errorBox.style.display = "none";
+  loadingDiv.style.display = "block";
+  try {
+    const response = await fetch(`${API_BASE_URL}/comics/random`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const comic = await response.json();
+    loadingDiv.style.display = "none";
+    resultsInfo.textContent = `Zufälliger Comic #${comic.num}: ${comic.title}`;
+    displayResults([comic]);
+  } catch (err) {
+    loadingDiv.style.display = "none";
+    errorBox.textContent = `Fehler: ${err.message}`;
+    errorBox.style.display = "block";
+    console.error("Fetch random comic error:", err);
+  }
+}
+
+randomButton.addEventListener("click", async () => {
+  await fetchRandomComic();
+});
+
 function displayResults(comics) {
   comics.forEach((comic) => {
     const card = document.createElement("div");
@@ -68,17 +96,17 @@ function displayResults(comics) {
                         </div>
                         <div class="comic-num">#${comic.num}</div>
                     </div>
-                    
+
                     <div class="comic-image">
                         <img src="${comic.img}" alt="${escapeHtml(
       comic.alt
     )}" loading="lazy">
                     </div>
-                    
+
                     <div class="comic-alt">
                         <strong>Alt-Text:</strong> ${escapeHtml(comic.alt)}
                     </div>
-                    
+
                     ${
                       comic.transcript
                         ? `
