@@ -16,13 +16,26 @@ searchForm.addEventListener("submit", async (e) => {
   await searchComics(query);
 });
 
-async function searchComics(query) {
-  // Reset
+randomButton.addEventListener("click", async () => {
+  await fetchRandomComic();
+});
+
+function resetResults() {
   resultsDiv.innerHTML = "";
   resultsInfo.textContent = "";
   errorBox.style.display = "none";
   loadingDiv.style.display = "block";
+}
 
+function showError(err) {
+  loadingDiv.style.display = "none";
+  errorBox.textContent = `Fehler: ${err.message}`;
+  errorBox.style.display = "block";
+  console.error("Search error:", err);
+}
+
+async function searchComics(query) {
+  resetResults();
   try {
     const response = await fetch(
       `${API_BASE_URL}/comics/search?q=${encodeURIComponent(query)}`
@@ -45,19 +58,12 @@ async function searchComics(query) {
     } für "${query}"`;
     displayResults(data.comics);
   } catch (err) {
-    loadingDiv.style.display = "none";
-    errorBox.textContent = `Fehler: ${err.message}`;
-    errorBox.style.display = "block";
-    console.error("Search error:", err);
+    showError(err);
   }
 }
 
 async function fetchRandomComic() {
-  // Reset
-  resultsDiv.innerHTML = "";
-  resultsInfo.textContent = "";
-  errorBox.style.display = "none";
-  loadingDiv.style.display = "block";
+  resetResults();
   try {
     const response = await fetch(`${API_BASE_URL}/comics/random`);
     if (!response.ok) {
@@ -68,16 +74,9 @@ async function fetchRandomComic() {
     resultsInfo.textContent = `Zufälliger Comic #${comic.num}: ${comic.title}`;
     displayResults([comic]);
   } catch (err) {
-    loadingDiv.style.display = "none";
-    errorBox.textContent = `Fehler: ${err.message}`;
-    errorBox.style.display = "block";
-    console.error("Fetch random comic error:", err);
+    showError(err);
   }
 }
-
-randomButton.addEventListener("click", async () => {
-  await fetchRandomComic();
-});
 
 function displayResults(comics) {
   comics.forEach((comic) => {
