@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>xkcd Comic Search</title>
+    <link rel="stylesheet" href="style.css" />
+    <script src="script.js" defer></script>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>xkcd-BOT9000</h1>
+        <p class="subtitle">// COMIC DATABASE //</p>
+      </header>
+
+      <div class="search-box">
+        <form class="search-form" id="searchForm">
+          <input
+            type="text"
+            id="searchInput"
+            placeholder="Suchbegriff eingeben..."
+            required
+          />
+          <button type="submit">SUCHEN</button>
+        </form>
+        <p class="info">Durchsuche Titel, Alt-Text und Transkripte</p>
+      </div>
+
+      <div class="error" id="errorBox"></div>
+      <div class="loading" id="loading">Suche läuft...</div>
+      <div class="results-info" id="resultsInfo"></div>
+      <div class="results" id="results"></div>
+    </div>
+  </body>
+</html>
