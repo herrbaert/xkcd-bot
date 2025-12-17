@@ -7,6 +7,42 @@ const resultsInfo = document.getElementById("resultsInfo");
 const loadingDiv = document.getElementById("loading");
 const errorBox = document.getElementById("errorBox");
 const randomButton = document.getElementById("randomButton");
+const refineToggleBtn = document.getElementById("refineToggleBtn");
+const refinePanel = document.getElementById("refinePanel");
+
+// Toggle refine panel open/close
+if (refineToggleBtn && refinePanel) {
+  refineToggleBtn.addEventListener("click", (e) => {
+    const expanded = refineToggleBtn.getAttribute("aria-expanded") === "true";
+    refineToggleBtn.setAttribute("aria-expanded", String(!expanded));
+    refinePanel.setAttribute("aria-hidden", String(expanded));
+    // toggle visual
+    if (!expanded) {
+      refinePanel.style.display = "block";
+    } else {
+      refinePanel.style.display = "none";
+    }
+  });
+
+  // close on Escape
+  document.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape") {
+      refineToggleBtn.setAttribute("aria-expanded", "false");
+      refinePanel.setAttribute("aria-hidden", "true");
+      refinePanel.style.display = "none";
+    }
+  });
+
+  // close when clicking outside
+  document.addEventListener("click", (ev) => {
+    const target = ev.target;
+    if (!refinePanel.contains(target) && !refineToggleBtn.contains(target) && refinePanel.style.display === "block") {
+      refineToggleBtn.setAttribute("aria-expanded", "false");
+      refinePanel.setAttribute("aria-hidden", "true");
+      refinePanel.style.display = "none";
+    }
+  });
+}
 
 searchForm.addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -20,7 +56,7 @@ randomButton.addEventListener("click", async () => {
   await fetchRandomComic();
 });
 
-function resetResults() {
+function resetSearch() {
   resultsDiv.innerHTML = "";
   resultsInfo.textContent = "";
   errorBox.style.display = "none";
@@ -35,7 +71,7 @@ function showError(err) {
 }
 
 async function searchComics(query) {
-  resetResults();
+  resetSearch();
   try {
     const response = await fetch(
       `${API_BASE_URL}/comics/search?q=${encodeURIComponent(query)}`
@@ -63,7 +99,7 @@ async function searchComics(query) {
 }
 
 async function fetchRandomComic() {
-  resetResults();
+  resetSearch();
   try {
     const response = await fetch(`${API_BASE_URL}/comics/random`);
     if (!response.ok) {

@@ -66,6 +66,103 @@ input[type="text"] {
   transition: all 0.3s;
 }
 
+/* Wrapper for input + inline toggle */
+.search-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.search-input-wrapper input[type="text"] {
+  padding-right: 48px; /* make room for the toggle button */
+}
+
+.refine-toggle {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 34px;
+  height: 34px;
+  border-radius: 6px;
+  border: none;
+  background: rgba(58, 134, 255, 0.15);
+  color: #06ffa5;
+  font-weight: bold;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.refine-toggle:focus {
+  outline: none;
+  box-shadow: 0 0 10px rgba(58, 134, 255, 0.4);
+}
+
+/* Panel containing refinement controls */
+.refine-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 10px);
+  background: rgba(10, 6, 20, 0.95);
+  border: 1px solid rgba(58, 134, 255, 0.12);
+  padding: 12px;
+  border-radius: 8px;
+  width: 320px;
+  z-index: 20;
+  box-shadow: 0 6px 30px rgba(0, 0, 0, 0.6);
+  display: none;
+}
+
+.refine-panel[aria-hidden="false"] {
+  display: block;
+}
+
+.refine-row {
+  margin-bottom: 10px;
+  display: flex;
+  flex-direction: column;
+}
+
+.refine-row label {
+  font-size: 0.85rem;
+  color: #aaa;
+  margin-bottom: 6px;
+}
+
+.refine-row input[type="text"],
+.refine-row input[type="date"] {
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid #333;
+  background: rgba(0,0,0,0.6);
+  color: #06ffa5;
+}
+
+.date-row .date-inputs {
+  display: flex;
+  gap: 8px;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #ddd;
+}
+
+@media (max-width: 768px) {
+  .refine-panel {
+    position: static;
+    width: 100%;
+    margin-top: 10px;
+  }
+  .search-input-wrapper input[type="text"] { padding-right: 20px; }
+  .refine-toggle { right: 6px; }
+}
+
 input[type="text"]:focus {
   outline: none;
   border-color: #ff006e;

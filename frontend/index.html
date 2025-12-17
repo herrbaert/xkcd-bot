@@ -16,13 +16,40 @@
 
       <div class="search-box">
         <form class="search-form" id="searchForm">
-          <input
-            type="text"
-            id="searchInput"
-            placeholder="Suchbegriff eingeben..."
-            required
-          />
-        <p class="info">Durchsuche Titel, Alt-Text und Transkripte</p>
+          <div class="search-input-wrapper">
+            <input
+              type="text"
+              id="searchInput"
+              placeholder="Suchbegriff eingeben..."
+              required
+            />
+            <button id="refineToggleBtn" type="button" class="refine-toggle" aria-expanded="false" aria-controls="refinePanel" title="Erweiterte Suche">
+              ▾
+            </button>
+
+            <div id="refinePanel" class="refine-panel" role="region" aria-hidden="true">
+              <div class="refine-row">
+                <label for="refineCharacter">Charakter</label>
+                <input type="text" id="refineCharacter" name="character" placeholder="z.B. Calvin" />
+              </div>
+              <div class="refine-row">
+                <label for="refineTopic">Thema / Schlagwort</label>
+                <input type="text" id="refineTopic" name="topic" placeholder="z.B. physics" />
+              </div>
+              <div class="refine-row date-row">
+                <label>Datum (von - bis)</label>
+                <div class="date-inputs">
+                  <input type="date" id="refineDateFrom" name="date_from" />
+                  <input type="date" id="refineDateTo" name="date_to" />
+                </div>
+              </div>
+              <div class="refine-row">
+                <label class="checkbox-label"><input type="checkbox" id="refineInclusive" name="inclusive" /> Inklusive Suche</label>
+              </div>
+            </div>
+          </div>
+
+          <p class="info">Durchsuche Titel, Alt-Text und Transkripte</p>
           <button type="submit">SUCHEN</button>
           <button id="randomButton" type="button">RANDOM</button>
         </form>
