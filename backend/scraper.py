@@ -175,20 +175,21 @@ def get_transcript_for_comic(num: int) -> str:
             return ""
 
         # Hole das nächste Sibling-Element nach dem <h2>
-        # Dies sollte das <dl>-Element mit den <dd>-Einträgen sein
-        dl_element = h2_element.find_next_sibling()
-
-        if not dl_element or dl_element.name != 'dl':
-            return ""
-
-        # Sammle Text aus allen <dd>-Elementen innerhalb des <dl>
+        # Dies sollte das <dl>-Element mit den <dd>-Einträgen sein oder ein <p> oder anderes Element
         transcript_parts = []
-        dd_elements = dl_element.find_all('dd')
+        current_element = h2_element.find_next_sibling()
 
-        for dd in dd_elements:
-            text = dd.get_text(strip=True)
+        def check_id(element):
+            children = element.find_all(recursive=False)
+            for test in [element, *children]:
+                if test.get('id') in ["Trivia", "Discussion"]:
+                    return True
+
+        while current_element and not check_id(current_element):
+            text = current_element.get_text(separator="\n", strip=True)
             if text:
                 transcript_parts.append(text)
+            current_element = current_element.find_next_sibling()
 
         # Füge alle Teile zusammen
         transcript = "\n".join(transcript_parts)
