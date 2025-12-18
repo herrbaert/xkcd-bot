@@ -136,6 +136,19 @@ async def search_comics(
         "comics": comics
     }
 
+@app.get("/comics/random")
+async def get_random_comic():
+    """
+    Liefert ein zufälliges Comic.
+    """
+    pipeline = [{"$sample": {"size": 1}}]
+    result = list(collection.aggregate(pipeline))
+
+    if not result:
+        raise HTTPException(status_code=404, detail="Keine Comics in der Datenbank gefunden")
+
+    comic = result[0]
+    return clean_comic(comic)
 
 @app.get("/comics/{num}")
 async def get_comic(num: int):
