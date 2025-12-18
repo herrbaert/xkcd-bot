@@ -13,15 +13,13 @@ const refinePanel = document.getElementById("refinePanel");
 // Toggle refine panel open/close
 if (refineToggleBtn && refinePanel) {
   refineToggleBtn.addEventListener("click", (e) => {
-    const expanded = refineToggleBtn.getAttribute("aria-expanded") === "true";
-    refineToggleBtn.setAttribute("aria-expanded", String(!expanded));
-    refinePanel.setAttribute("aria-hidden", String(expanded));
-    // toggle visual
-    if (!expanded) {
-      refinePanel.style.display = "block";
-    } else {
-      refinePanel.style.display = "none";
-    }
+    const isOpen = refineToggleBtn.getAttribute("aria-expanded") === "true";
+    const newState = !isOpen;
+    refineToggleBtn.setAttribute("aria-expanded", String(newState));
+    refinePanel.setAttribute("aria-hidden", String(!newState));
+    refinePanel.style.display = newState ? "block" : "none";
+    // update triangle: up when open, down when closed
+    refineToggleBtn.textContent = newState ? "▴" : "▾";
   });
 
   // close on Escape
@@ -30,6 +28,7 @@ if (refineToggleBtn && refinePanel) {
       refineToggleBtn.setAttribute("aria-expanded", "false");
       refinePanel.setAttribute("aria-hidden", "true");
       refinePanel.style.display = "none";
+      refineToggleBtn.textContent = "▾";
     }
   });
 
@@ -40,6 +39,7 @@ if (refineToggleBtn && refinePanel) {
       refineToggleBtn.setAttribute("aria-expanded", "false");
       refinePanel.setAttribute("aria-hidden", "true");
       refinePanel.style.display = "none";
+      refineToggleBtn.textContent = "▾";
     }
   });
 }

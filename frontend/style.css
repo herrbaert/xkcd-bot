@@ -94,6 +94,7 @@ input[type="text"] {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  z-index: 30;
 }
 
 .refine-toggle:focus {
@@ -104,13 +105,13 @@ input[type="text"] {
 /* Panel containing refinement controls */
 .refine-panel {
   position: absolute;
-  right: 0;
+  left: 0;
   top: calc(100% + 10px);
   background: rgba(10, 6, 20, 0.95);
   border: 1px solid rgba(58, 134, 255, 0.12);
   padding: 12px;
   border-radius: 8px;
-  width: 320px;
+  width: calc(100% - 48px);
   z-index: 20;
   box-shadow: 0 6px 30px rgba(0, 0, 0, 0.6);
   display: none;
@@ -159,8 +160,24 @@ input[type="text"] {
     width: 100%;
     margin-top: 10px;
   }
-  .search-input-wrapper input[type="text"] { padding-right: 20px; }
-  .refine-toggle { right: 6px; }
+
+  /* Stack the input, toggle and panel vertically so the panel pushes buttons down */
+  .search-input-wrapper {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .search-input-wrapper input[type="text"] {
+    padding-right: 12px;
+    width: 100%;
+  }
+
+  .refine-toggle {
+    position: static;
+    align-self: flex-end;
+    margin-top: 8px;
+    right: auto;
+  }
 }
 
 input[type="text"]:focus {
