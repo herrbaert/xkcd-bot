@@ -162,6 +162,17 @@ async def get_comic(num: int):
 
     return clean_comic(comic)
 
+@app.patch("/comics/{num}")
+async def update_comic(num: int, comic_data: dict):
+    """
+    Aktualisiert ein spezifisches Comic nach Nummer.
+    """
+    result = collection.update_one({"num": num}, {"$set": comic_data})
+
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail=f"Comic #{num} nicht gefunden")
+
+    return {"message": "Comic aktualisiert"}
 
 if __name__ == "__main__":
     import uvicorn

@@ -35,10 +35,12 @@ if (refineToggleBtn && refinePanel) {
   // close when clicking outside
   document.addEventListener("click", (ev) => {
     const target = ev.target;
-    if (!refinePanel.contains(target)
-        && !refineToggleBtn.contains(target)
-        && !searchInput.contains(target)
-        && refinePanel.style.display === "block") {
+    if (
+      !refinePanel.contains(target) &&
+      !refineToggleBtn.contains(target) &&
+      !searchInput.contains(target) &&
+      refinePanel.style.display === "block"
+    ) {
       refineToggleBtn.setAttribute("aria-expanded", "false");
       refinePanel.setAttribute("aria-hidden", "true");
       refinePanel.style.display = "none";
@@ -151,6 +153,16 @@ function displayResults(comics) {
                         <div class="comic-transcript">
                             <strong>Transcript:</strong><br>
                             ${escapeHtml(comic.transcript)}
+                        </div>
+                    `
+                        : ""
+                    }
+                    ${
+                      comic.characters
+                        ? `
+                        <div class="comic-characters">
+                            <strong>Characters:</strong>
+                            ${escapeHtml(comic.characters)}
                         </div>
                     `
                         : ""
