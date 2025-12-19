@@ -179,21 +179,74 @@ function displayResults(comics) {
 }
 
 function openEditDialog(comic) {
-  const currentCharacters = comic.characters || "";
-  const newCharacters = prompt(
-    `Characters für Comic #${comic.num} bearbeiten:\n(Komma-getrennt)`,
-    currentCharacters
-  );
+  const characterDiv = document.querySelector(`.comic-characters[data-comic-num="${comic.num}"]`);
+  const textSpan = characterDiv.querySelector('.characters-text');
+  const editBtn = document.querySelector(`.edit-button[data-comic-num="${comic.num}"]`);
   
-  if (newCharacters !== null) {
-    updateCharacters(comic.num, newCharacters.trim());
+  // Check if already in edit mode
+  if (characterDiv.querySelector('.edit-mode')) {
+    return;
   }
+  
+  const currentCharacters = comic.characters || "";
+  
+  // Create edit interface
+  const editContainer = document.createElement('div');
+  editContainer.className = 'edit-mode';
+  editContainer.innerHTML = `
+    <input type="text" class="edit-input" value="${escapeHtml(currentCharacters)}" placeholder="Characters eingeben (Komma-getrennt)">
+    <div class="edit-buttons">
+      <button class="save-btn">Speichern</button>
+      <button class="cancel-btn">Abbrechen</button>
+    </div>
+  `;
+  
+  // Hide text and edit button
+  textSpan.style.display = 'none';
+  editBtn.style.display = 'none';
+  
+  // Add edit container
+  characterDiv.appendChild(editContainer);
+  
+  const input = editContainer.querySelector('.edit-input');
+  const saveBtn = editContainer.querySelector('.save-btn');
+  const cancelBtn = editContainer.querySelector('.cancel-btn');
+  
+  // Focus input
+  input.focus();
+  input.select();
+  
+  // Save handler
+  const saveHandler = () => {
+    const newCharacters = input.value.trim();
+    updateCharacters(comic.num, newCharacters);
+    exitEditMode();
+  };
+  
+  // Cancel handler
+  const exitEditMode = () => {
+    editContainer.remove();
+    textSpan.style.display = '';
+    editBtn.style.display = '';
+  };
+  
+  saveBtn.addEventListener('click', saveHandler);
+  cancelBtn.addEventListener('click', exitEditMode);
+  
+  // Save on Enter
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      saveHandler();
+    } else if (e.key === 'Escape') {
+      exitEditMode();
+    }
+  });
 }
 
 async function updateCharacters(comicNum, characters) {
   try {
-    const response = await fetch(`${API_BASE_URL}/comics/${comicNum}/characters`, {
-      method: 'PUT',
+    const response = await fetch(`${API_BASE_URL}/comics/${comicNum}`, {
+      method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
       },
