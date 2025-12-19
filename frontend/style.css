@@ -326,3 +326,55 @@ button:focus {
     margin-top: 10px;
   }
 }
+
+.comic-transcript {
+  color: #aaa;
+  line-height: 1.6;
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid #333;
+}
+
+.comic-characters {
+  color: #aaa;
+  line-height: 1.6;
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid #333;
+}
+
+.comic-card {
+  position: relative;
+}
+
+.edit-button {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  padding: 10px;
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, #8338ec, #3a86ff);
+  border: none;
+  border-radius: 50%;
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.edit-button:hover {
+  transform: translateY(-2px) scale(1.1);
+  box-shadow: 0 5px 20px rgba(131, 56, 236, 0.6);
+}
+
+.edit-button:active {
+  transform: translateY(0) scale(1);
+}
+
+.edit-button svg {
+  width: 18px;
+  height: 18px;
+}

@@ -157,22 +157,66 @@ function displayResults(comics) {
                     `
                         : ""
                     }
-                    ${
-                      comic.characters
-                        ? `
-                        <div class="comic-characters">
-                            <strong>Characters:</strong>
-                            ${escapeHtml(comic.characters)}
-                        </div>
-                    `
-                        : ""
-                    }
+                    <div class="comic-characters" data-comic-num="${comic.num}">
+                        <strong>Characters:</strong>
+                        <span class="characters-text">${escapeHtml(comic.characters || "Keine Characters angegeben")}</span>
+                    </div>
+                    
+                    <button class="edit-button" data-comic-num="${comic.num}" aria-label="Characters bearbeiten">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                        </svg>
+                    </button>
                 `;
 
     resultsDiv.appendChild(card);
+    
+    // Add event listener for edit button
+    const editBtn = card.querySelector('.edit-button');
+    editBtn.addEventListener('click', () => openEditDialog(comic));
   });
 }
 
+function openEditDialog(comic) {
+  const currentCharacters = comic.characters || "";
+  const newCharacters = prompt(
+    `Characters für Comic #${comic.num} bearbeiten:\n(Komma-getrennt)`,
+    currentCharacters
+  );
+  
+  if (newCharacters !== null) {
+    updateCharacters(comic.num, newCharacters.trim());
+  }
+}
+
+async function updateCharacters(comicNum, characters) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/comics/${comicNum}/characters`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ characters: characters })
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    // Update the UI
+    const characterDiv = document.querySelector(`.comic-characters[data-comic-num="${comicNum}"]`);
+    if (characterDiv) {
+      const textSpan = characterDiv.querySelector('.characters-text');
+      textSpan.textContent = characters || "Keine Characters angegeben";
+    }
+    
+    alert('Characters erfolgreich aktualisiert!');
+  } catch (err) {
+    alert(`Fehler beim Aktualisieren: ${err.message}`);
+    console.error('Update error:', err);
+  }
+}
 function escapeHtml(text) {
   const div = document.createElement("div");
   div.textContent = text;
