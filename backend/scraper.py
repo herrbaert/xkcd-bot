@@ -176,7 +176,7 @@ def get_transcript_for_comic(num: int) -> str:
 
         # Hole das nächste Sibling-Element nach dem <h2>
         # Dies sollte das <dl>-Element mit den <dd>-Einträgen sein oder ein <p> oder anderes Element
-        transcript_parts = []
+        transcript = ""
         current_element = h2_element.find_next_sibling()
 
         def check_id(element):
@@ -186,13 +186,13 @@ def get_transcript_for_comic(num: int) -> str:
                     return True
 
         while current_element and not check_id(current_element):
-            text = current_element.get_text(separator="\n", strip=True)
+            text = current_element.get_text(separator="", strip=True)
             if text:
-                transcript_parts.append(text)
+                html = str(current_element)
+                transcript += html
             current_element = current_element.find_next_sibling()
 
         # Füge alle Teile zusammen
-        transcript = "\n".join(transcript_parts)
         return transcript.strip()
 
     except Exception as exc:
