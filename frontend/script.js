@@ -159,7 +159,7 @@ function displayResults(comics) {
                     }
                     <div class="comic-characters" data-comic-num="${comic.num}">
                         <strong>Characters:</strong>
-                        <span class="characters-text">${escapeHtml(comic.characters || "Keine Characters angegeben")}</span>
+                        <span class="characters-text">${escapeHtml(comic.characters ? comic.characters.join(", ") : "Keine Characters angegeben")}</span>
                     </div>
                     
                     <button class="edit-button" data-comic-num="${comic.num}" aria-label="Characters bearbeiten">
@@ -218,7 +218,7 @@ function openEditDialog(comic) {
   
   // Save handler
   const saveHandler = () => {
-    const newCharacters = input.value.trim();
+    const newCharacters = input.value.trim().split(',').map(s => s.trim()).filter(s => s.length > 0);
     updateCharacters(comic.num, newCharacters);
     exitEditMode();
   };
@@ -245,7 +245,7 @@ function openEditDialog(comic) {
 
 async function updateCharacters(comicNum, characters) {
   try {
-    const response = await fetch(`${API_BASE_URL}/comics/${comicNum}`, {
+    const response = await fetch(`${API_BASE_URL}/comics/${comicNum}/characters`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
