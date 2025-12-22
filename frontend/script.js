@@ -150,7 +150,9 @@ function displayResults(comics) {
                         ? `
                         <div class="comic-transcript">
                             <strong>Transcript:</strong><br>
+                            <div>
                             ${comic.transcript}
+                            </div>
                         </div>
                     `
                         : ""
