@@ -327,7 +327,119 @@ button:focus {
     margin-top: 10px;
   }
 }
+.comic-transcript {
+  color: #aaa;
+  line-height: 1.6;
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid #333;
+}
 
+.comic-characters {
+  color: #aaa;
+  line-height: 1.6;
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid #333;
+}
+
+.comic-card {
+  position: relative;
+}
+
+.edit-button {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  padding: 10px;
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, #8338ec, #3a86ff);
+  border: none;
+  border-radius: 50%;
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.edit-button:hover {
+  transform: translateY(-2px) scale(1.1);
+  box-shadow: 0 5px 20px rgba(131, 56, 236, 0.6);
+}
+
+.edit-button:active {
+  transform: translateY(0) scale(1);
+}
+
+.edit-button svg {
+  width: 18px;
+  height: 18px;
+}
+
+.edit-mode {
+  margin-top: 10px;
+}
+
+.edit-input {
+  width: 100%;
+  padding: 12px 15px;
+  font-size: 1rem;
+  background: rgba(0, 0, 0, 0.6);
+  border: 2px solid #3a86ff;
+  border-radius: 5px;
+  color: #06ffa5;
+  font-family: "Courier New", monospace;
+  margin-bottom: 10px;
+}
+
+.edit-input:focus {
+  outline: none;
+  border-color: #ff006e;
+  box-shadow: 0 0 15px rgba(255, 0, 110, 0.5);
+}
+
+.edit-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.save-btn,
+.cancel-btn {
+  flex: 1;
+  padding: 10px 20px;
+  font-size: 0.9rem;
+  border-radius: 5px;
+  font-family: "Courier New", monospace;
+  cursor: pointer;
+  transition: all 0.3s;
+  font-weight: bold;
+}
+
+.save-btn {
+  background: linear-gradient(135deg, #06ffa5, #3a86ff);
+  border: none;
+  color: #fff;
+}
+
+.save-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 20px rgba(6, 255, 165, 0.5);
+}
+
+.cancel-btn {
+  background: rgba(255, 0, 110, 0.2);
+  border: 2px solid #ff006e;
+  color: #ff006e;
+}
+
+.cancel-btn:hover {
+  background: rgba(255, 0, 110, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 5px 20px rgba(255, 0, 110, 0.4);
+}
 dd {
     margin-left:1.6em;
     margin-right:0

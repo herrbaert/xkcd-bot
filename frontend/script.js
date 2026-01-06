@@ -35,10 +35,12 @@ if (refineToggleBtn && refinePanel) {
   // close when clicking outside
   document.addEventListener("click", (ev) => {
     const target = ev.target;
-    if (!refinePanel.contains(target)
-        && !refineToggleBtn.contains(target)
-        && !searchInput.contains(target)
-        && refinePanel.style.display === "block") {
+    if (
+      !refinePanel.contains(target) &&
+      !refineToggleBtn.contains(target) &&
+      !searchInput.contains(target) &&
+      refinePanel.style.display === "block"
+    ) {
       refineToggleBtn.setAttribute("aria-expanded", "false");
       refinePanel.setAttribute("aria-hidden", "true");
       refinePanel.style.display = "none";
@@ -157,12 +159,119 @@ function displayResults(comics) {
                     `
                         : ""
                     }
+                    <div class="comic-characters" data-comic-num="${comic.num}">
+                        <strong>Characters:</strong>
+                        <span class="characters-text">${escapeHtml(comic.characters ? comic.characters.join(", ") : "Keine Characters angegeben")}</span>
+                    </div>
+                    
+                    <button class="edit-button" data-comic-num="${comic.num}" aria-label="Characters bearbeiten">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                        </svg>
+                    </button>
                 `;
 
     resultsDiv.appendChild(card);
+    
+    // Add event listener for edit button
+    const editBtn = card.querySelector('.edit-button');
+    editBtn.addEventListener('click', () => openEditDialog(comic));
   });
 }
 
+function openEditDialog(comic) {
+  const characterDiv = document.querySelector(`.comic-characters[data-comic-num="${comic.num}"]`);
+  const textSpan = characterDiv.querySelector('.characters-text');
+  const editBtn = document.querySelector(`.edit-button[data-comic-num="${comic.num}"]`);
+  
+  // Check if already in edit mode
+  if (characterDiv.querySelector('.edit-mode')) {
+    return;
+  }
+  
+  const currentCharacters = comic.characters || "";
+  
+  // Create edit interface
+  const editContainer = document.createElement('div');
+  editContainer.className = 'edit-mode';
+  editContainer.innerHTML = `
+    <input type="text" class="edit-input" value="${escapeHtml(currentCharacters)}" placeholder="Characters eingeben (Komma-getrennt)">
+    <div class="edit-buttons">
+      <button class="save-btn">Speichern</button>
+      <button class="cancel-btn">Abbrechen</button>
+    </div>
+  `;
+  
+  // Hide text and edit button
+  textSpan.style.display = 'none';
+  editBtn.style.display = 'none';
+  
+  // Add edit container
+  characterDiv.appendChild(editContainer);
+  
+  const input = editContainer.querySelector('.edit-input');
+  const saveBtn = editContainer.querySelector('.save-btn');
+  const cancelBtn = editContainer.querySelector('.cancel-btn');
+  
+  // Focus input
+  input.focus();
+  input.select();
+  
+  // Save handler
+  const saveHandler = () => {
+    const newCharacters = input.value.trim().split(',').map(s => s.trim()).filter(s => s.length > 0);
+    updateCharacters(comic.num, newCharacters);
+    exitEditMode();
+  };
+  
+  // Cancel handler
+  const exitEditMode = () => {
+    editContainer.remove();
+    textSpan.style.display = '';
+    editBtn.style.display = '';
+  };
+  
+  saveBtn.addEventListener('click', saveHandler);
+  cancelBtn.addEventListener('click', exitEditMode);
+  
+  // Save on Enter
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      saveHandler();
+    } else if (e.key === 'Escape') {
+      exitEditMode();
+    }
+  });
+}
+
+async function updateCharacters(comicNum, characters) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/comics/${comicNum}/characters`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ characters: characters })
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    // Update the UI
+    const characterDiv = document.querySelector(`.comic-characters[data-comic-num="${comicNum}"]`);
+    if (characterDiv) {
+      const textSpan = characterDiv.querySelector('.characters-text');
+      textSpan.textContent = characters || "Keine Characters angegeben";
+    }
+    
+    alert('Characters erfolgreich aktualisiert!');
+  } catch (err) {
+    alert(`Fehler beim Aktualisieren: ${err.message}`);
+    console.error('Update error:', err);
+  }
+}
 function escapeHtml(text) {
   const div = document.createElement("div");
   div.textContent = text;
