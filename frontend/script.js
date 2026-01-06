@@ -152,7 +152,9 @@ function displayResults(comics) {
                         ? `
                         <div class="comic-transcript">
                             <strong>Transcript:</strong><br>
-                            ${escapeHtml(comic.transcript)}
+                            <div>
+                            ${comic.transcript}
+                            </div>
                         </div>
                     `
                         : ""
