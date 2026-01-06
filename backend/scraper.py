@@ -10,7 +10,7 @@ Big picture:
   - `get_latest_comic_number`: Fragt die neueste Comic-Nummer bei xkcd ab.
   - `fetch_comic`: Lädt die JSON-Metadaten für ein bestimmtes Comic herunter und bereinigt Datumsfelder.
   - `save_comic`: Speichert oder aktualisiert einen Comic-Eintrag in der DB.
-  - `download_comics`: Haupt-Download-Loop, lädt einen Bereich von Comics herunter und speichert sie (mit Resume/Delay).
+  - `download_comics`: Haupt-Download-Loop, lädt einen Bereich von Comics herunter und speichert sie (mit replace/Delay).
   - `test`: Interaktiver Schnelltest für ein einzelnes Comic (nur zum Entwickeln).
 - CLI: Das Script kann als CLI mit Argumenten aufgerufen werden, z.B. um einen Bereich herunterzuladen.
 
@@ -28,6 +28,7 @@ from dotenv import load_dotenv
 from pymongo import MongoClient
 import time
 import argparse
+import sys
 
 # .env laden (Pfad hier ist relativ zum Projekt; kann angepasst werden)
 load_dotenv()
@@ -151,7 +152,7 @@ def get_transcript_for_comic(num: int) -> str:
     - str: Das Transcript-Text oder leerer String wenn nicht gefunden
     """
     try:
-        from bs4 import BeautifulSoup
+        from bs4 import BeautifulSoup, Tag
 
         base_url = f"https://www.explainxkcd.com/wiki/index.php/{num}"
         resp = requests.get(base_url, timeout=10)
@@ -179,13 +180,16 @@ def get_transcript_for_comic(num: int) -> str:
         transcript = ""
         current_element = h2_element.find_next_sibling()
 
-        def check_id(element):
+        def is_headline(element: Tag) -> bool:
             children = element.find_all(recursive=False)
             for test in [element, *children]:
-                if test.get('id') in ["Trivia", "Discussion"]:
+                class_list = test.get('class')
+                if class_list and "mw-headline" in class_list:
+                # if test.get('id') in ["Trivia", "Discussion"]:
                     return True
+            return False
 
-        while current_element and not check_id(current_element):
+        while current_element and not is_headline(current_element):
             text = current_element.get_text(separator="", strip=True)
             if text:
                 html = str(current_element)
@@ -205,9 +209,9 @@ def add_transcript_to_comic(num: int, transcript: str):
         {"$set": {"transcript": transcript}}
     )
 
-def add_transcripts(missing_only: bool = True, comics: list[int] | None = None, start: int | None = None, end: int | None = None):
+def add_transcripts(replace: bool = False, comics: list[int] | None = None, start: int | None = None, end: int | None = None):
     if comics is None:
-        if missing_only:
+        if not replace:
             comics = get_all_comics_without_transcript()
         else:
             comics = get_all_stored_comic_numbers()
@@ -227,7 +231,7 @@ def add_transcripts(missing_only: bool = True, comics: list[int] | None = None, 
 def download_comics(
         start: int | None = None,
         end: int | None = None,
-        resume: bool = True,
+        replace: bool = True,
         delay: float | None = None
     ):
     """Haupt-Download-Loop: lade Comics im Bereich [start, end] und speichere sie in der DB.
@@ -235,13 +239,13 @@ def download_comics(
     Parameter:
     - start: Startnummer (inklusive). Standard 1.
     - end: Endnummer (inklusive). Wenn None, wird die derzeit höchste Comic-Nummer verwendet.
-    - resume: Wenn True, werden bereits vorhandene Comics in der DB übersprungen (nützlich beim Fortsetzen).
+    - replace: Wenn True, werden bereits vorhandene Comics in der DB übersprungen (nützlich beim Fortsetzen).
     - delay: Pause in Sekunden zwischen Requests, um Server nicht zu überlasten.
 
     Verhalten/Strategie:
     - Bestimmt bei Bedarf zuerst die neueste Comic-Nummer.
     - Iteriert über die Zahlenreihe und versucht für jede Nummer:
-      1. Bei resume: prüfen, ob bereits ein Dokument existiert, dann skippen.
+      1. Bei replace: prüfen, ob bereits ein Dokument existiert, dann skippen.
       2. fetch_comic aufrufen; bei HTTP-Fehlern oder None wird übersprungen.
       3. save_comic aufrufen, Fehler beim Speichern werden geloggt, aber die Schleife läuft weiter.
     - Kleine Pausen (delay) zwischen Requests helfen, Rate-Limits und Last zu vermeiden.
@@ -258,10 +262,10 @@ def download_comics(
     if delay is None:
         delay = 0.3
 
-    print(f"Downloading comics {start}..{end} (resume={resume}, delay={delay}s)")
+    print(f"Processing comics {start} - {end} (replace = {replace}, delay = {delay}s)")
     for num in range(start, end + 1):
         try:
-            if resume and collection.find_one({"num": num}):
+            if not replace and collection.find_one({"num": num}):
                 print(f"{num}: already in DB, skipping")
                 continue
 
@@ -292,10 +296,13 @@ def download_comics(
 
 if __name__ == "__main__":
     # CLI: einfache Argumente um Download-Loop zu steuern oder den Test auszuführen.
+    # Versuchter Bugfix für Debugger:
+    # if len(sys.argv) == 2 and "\\ " in sys.argv[1]:
+    #     sys.argv = sys.argv[0] + "\\ ".split(sys.argv[1])
     parser = argparse.ArgumentParser(description="xkcd scraper")
     parser.add_argument("--start", type=int, help="Start comic number (inclusive). If omitted, uses next after highest in DB")
     parser.add_argument("--end", type=int, help="End comic number (inclusive). If omitted, uses latest comic")
-    parser.add_argument("--no-resume", dest="resume", action="store_false", help="Do not skip comics already in DB")
+    parser.add_argument("--replace", dest="replace", action="store_true", help="Skip comics already in DB")
     parser.add_argument("--delay", type=float, help="Delay in seconds between requests")
     parser.add_argument("--update", action="store_true", help="Fetch and add transcripts from explainxkcd.com")
     args = parser.parse_args()
@@ -305,6 +312,6 @@ if __name__ == "__main__":
 
     # Download-Loop mit den übergebenen Optionen starten
     if args.update:
-        add_transcripts(missing_only=args.resume, start=args.start, end=args.end)
+        add_transcripts(replace=args.replace, start=args.start, end=args.end)
     else:
-        download_comics(start=args.start, end=args.end, resume=args.resume, delay=args.delay)
+        download_comics(start=args.start, end=args.end, replace=args.replace, delay=args.delay)

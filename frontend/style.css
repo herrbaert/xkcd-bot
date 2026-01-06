@@ -222,6 +222,7 @@ button:focus {
   border-radius: 10px;
   padding: 25px;
   transition: all 0.3s;
+  overflow-wrap: anywhere;
 }
 
 .comic-card:hover {
@@ -325,4 +326,13 @@ button:focus {
     width: 100%;
     margin-top: 10px;
   }
+}
+
+dd {
+    margin-left:1.6em;
+    margin-right:0
+  }
+
+pre {
+    white-space: pre-wrap;
 }
