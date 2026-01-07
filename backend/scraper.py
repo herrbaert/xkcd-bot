@@ -295,10 +295,9 @@ def download_comics(
 
 
 if __name__ == "__main__":
-    # CLI: einfache Argumente um Download-Loop zu steuern oder den Test auszuführen.
-    # Versuchter Bugfix für Debugger:
-    # if len(sys.argv) == 2 and "\\ " in sys.argv[1]:
-    #     sys.argv = sys.argv[0] + "\\ ".split(sys.argv[1])
+    # Bugfix für VSCode Python Debugger, welcher:
+    if len(sys.argv) == 2 and " " in sys.argv[1]:
+        sys.argv = [sys.argv[0]] + sys.argv[1].split()
     parser = argparse.ArgumentParser(description="xkcd scraper")
     parser.add_argument("--start", type=int, help="Start comic number (inclusive). If omitted, uses next after highest in DB")
     parser.add_argument("--end", type=int, help="End comic number (inclusive). If omitted, uses latest comic")
