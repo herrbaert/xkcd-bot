@@ -20,10 +20,10 @@ import re
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pymongo import MongoClient, TEXT
-from dotenv import load_dotenv
+# from dotenv import load_dotenv
 
 # .env laden
-load_dotenv()
+# load_dotenv()
 
 # Konfiguration
 MONGO_URI = os.getenv("MONGO_URI")
