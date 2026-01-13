@@ -5,6 +5,13 @@ Parameters:
   SshPublicKey:
     Type: String
     Description: Public SSH key for EC2 access
+  MongoUri:
+    Type: String
+    NoEcho: true  # WICHTIG: Versteckt die Eingabe in den AWS Logs!
+  MongoDb:
+    Type: String
+  MongoCollection:
+    Type: String
 
 Resources:
   BackendSecurityGroup:
@@ -21,11 +28,51 @@ Resources:
           ToPort: 8000
           CidrIp: 0.0.0.0/0
 
+# 1. Die IAM Rolle für die EC2 Instanz
+  BackendInstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore # Erlaubt Zugriff via Session Manager (kein SSH nötig)
+
+  # 2. Das Instance Profile (verknüpft Rolle mit der Hardware)
+  BackendInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref BackendInstanceRole
+
+  BackendSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow SSH, HTTP and Backend Port
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80       # Neu: Standard HTTP
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 8000     # Dein FastAPI Port
+          ToPort: 8000
+          CidrIp: 0.0.0.0/0
+
   BackendInstance:
     Type: AWS::EC2::Instance
     Properties:
       InstanceType: t3.micro
       ImageId: ami-0387413ed05eb20af # Amazon Linux 2023
+      IamInstanceProfile: !Ref BackendInstanceProfile # HIER wird die Rolle zugewiesen!
       SecurityGroupIds:
         - !Ref BackendSecurityGroup
       UserData:
@@ -36,7 +83,8 @@ Resources:
           dnf update -y
 
           # Docker Repository hinzufügen
-          dnf install -y amazon-linux-extras
+          # folgender Befehl unnötig, weil schon in AL2023 direkt enthalten
+          # dnf install -y amazon-linux-extras
 
           # Docker installieren (AL2023)
           dnf install -y docker
