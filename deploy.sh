@@ -20,21 +20,12 @@ if [ -z "$AWS_ACCOUT_ID" ]; then
   exit 3
 fi
 
-test -n "$ECR_REPOSITORY" || ECR_REPOSITORY="xkcd-backend"
+test -n "$ECR_REPO" || ECR_REPO="xkcd-backend"
+test -n "$IMAGE_TAG" || IMAGE_TAG="latest"
+DOCKER_IMAGE="${ECR_REPO}:${IMAGE_TAG}"
 test -n "$AWS_REGION" || AWS_REGION=$(aws configure get region)
 ECR_REGISTRY="${AWS_ACCOUT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
-DOCKER_IMAGE="${ECR_REGISTRY}/${ECR_REPOSITORY}:latest"
-
-# Build Docker Image and Push to repo
-
-aws ecr create-repository \
-  --repository-name "$ECR_REPOSITORY" \
-  --region "$AWS_REGION"
-aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$ECR_REGISTRY"
-docker build -t xkcd-backend:latest .
-docker tag xkcd-backend:latest "$DOCKER_IMAGE"
-docker push "$DOCKER_IMAGE"
-
+ECR_IMAGE="${ECR_REGISTRY}/${DOCKER_IMAGE}"
 
 # SSH key pair for backend instance
 test -n "$SSH_KEY_FILE" || SSH_KEY_FILE='~/.ssh/id_rsa_backend-xkcdbot'
@@ -51,25 +42,50 @@ aws cloudformation deploy \
     MongoUri="$MONGO_URI" \
     MongoDb="$MONGO_DB" \
     MongoCollection="$MONGO_COLLECTION" \
-    DockerImage="$DOCKER_IMAGE" \
+    EcrRepo="$ECR_REPO" \
   --capabilities CAPABILITY_NAMED_IAM
 
 # Get backend EC2 instance public IP
 EC2_IP=$(aws cloudformation describe-stacks \
   --stack-name xkcd-bot-stack \
+  --region "$AWS_REGION" \
   --query "Stacks[0].Outputs[?OutputKey=='BackendPublicIp'].OutputValue" \
   --output text)
 
-# if we want to run the container later:
-# ssh ec2-user@$EC2_IP -i "$SSH_KEY_FILE" docker run ...
+
+# Build Docker Image and Push to repo
+
+aws ecr get-login-password --region "$AWS_REGION" | \
+  docker login --username AWS --password-stdin "$ECR_REGISTRY"
+docker build -t "$DOCKER_IMAGE" .
+docker tag "$DOCKER_IMAGE" "$ECR_IMAGE"
+docker push "$ECR_IMAGE"
+
+# Run Container on EC2 instance:
+scp -o StrictHostKeyChecking=no -i "$SSH_KEY_FILE" ".env" ec2-user@"$EC2_IP":~/.env
+ssh -o StrictHostKeyChecking=no ec2-user@"$EC2_IP" -i "$SSH_KEY_FILE" << 'EOF'
+  chmod 600 ~/.env
+  aws ecr get-login-password --region "$AWS_REGION" | \
+  docker login --username AWS --password-stdin "$ECR_REGISTRY"
+  docker run -d \
+    --name xkcd-backend \
+    --restart always \
+    -p 8000:8000 \
+    --env-file ~/.env \
+    ${ECR_IMAGE}
+EOF
 
 BUCKET=$(aws cloudformation describe-stacks \
   --stack-name xkcd-bot-stack \
+  --region "$AWS_REGION" \
   --query "Stacks[0].Outputs[?OutputKey=='BucketName'].OutputValue" \
   --output text)
 aws s3 sync frontend/ s3://${BUCKET}/ --delete
 
-echo "Your Website:"
+echo "Backend API"
+echo "http://${EC2_IP}:8000"
+
+echo "Frontend (S3):"
 echo "http://${BUCKET}.s3-website.${AWS_REGION}.amazonaws.com"
 
 echo "CloudFront URL (HTTPS):"

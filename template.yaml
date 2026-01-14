@@ -5,17 +5,18 @@ Parameters:
   SshPublicKey:
     Type: String
     Description: Public SSH key for EC2 access
-  MongoUri:
+  EcrRepo:
     Type: String
-    NoEcho: true  # Hides value in AWS logs
-  MongoDb:
-    Type: String
-  MongoCollection:
-    Type: String
-  DockerImage:
-    Type: String
+    Default: "xkcd-backend"
 
 Resources:
+  BackendECRRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      EmpyOnDelete: true
+      RepositoryName: !Ref EcrRepo
+      ImageTagMutability: MUTABLE # only for proof-of-concept
+
   BackendSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -48,12 +49,14 @@ Resources:
             Version: "2012-10-17"
             Statement:
               - Effect: Allow
+                Action: ecr:GetAuthorizationToken
+                Resource: "*"
+              - Effect: Allow
                 Action:
-                  - ecr:GetAuthorizationToken
                   - ecr:BatchCheckLayerAvailability
                   - ecr:GetDownloadUrlForLayer
                   - ecr:BatchGetImage
-                Resource: "*"
+                Resource: !GetAtt BackendECRRepository.Arn
 
   BackendInstanceProfile:
     Type: AWS::IAM::InstanceProfile
@@ -88,15 +91,6 @@ Resources:
           chmod 700 /home/ec2-user/.ssh
           chmod 600 /home/ec2-user/.ssh/authorized_keys
           chown -R ec2-user:ec2-user /home/ec2-user/.ssh
-
-          docker run -d \
-            --name xkcd-backend \
-            --restart always \
-            -p 8000:8000 \
-            -e MONGO_URI='${MongoUri}' \
-            -e MONGO_DB='${MongoDb}' \
-            -e MONGO_COLLECTION='${MongoCollection}' \
-            ${DockerImage}
 
   FrontendBucket:
     Type: AWS::S3::Bucket
