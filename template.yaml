@@ -7,10 +7,12 @@ Parameters:
     Description: Public SSH key for EC2 access
   MongoUri:
     Type: String
-    NoEcho: true  # WICHTIG: Versteckt die Eingabe in den AWS Logs!
+    NoEcho: true  # Hides value in AWS logs
   MongoDb:
     Type: String
   MongoCollection:
+    Type: String
+  DockerImage:
     Type: String
 
 Resources:
@@ -28,7 +30,6 @@ Resources:
           ToPort: 8000
           CidrIp: 0.0.0.0/0
 
-# 1. Die IAM Rolle für die EC2 Instanz
   BackendInstanceRole:
     Type: AWS::IAM::Role
     Properties:
@@ -40,67 +41,50 @@ Resources:
               Service: ec2.amazonaws.com
             Action: sts:AssumeRole
       ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore # Erlaubt Zugriff via Session Manager (kein SSH nötig)
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore # Allows connection via Session Manager in Console
 
-  # 2. Das Instance Profile (verknüpft Rolle mit der Hardware)
   BackendInstanceProfile:
     Type: AWS::IAM::InstanceProfile
     Properties:
       Roles:
         - !Ref BackendInstanceRole
 
-  BackendSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: Allow SSH, HTTP and Backend Port
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 22
-          ToPort: 22
-          CidrIp: 0.0.0.0/0
-        - IpProtocol: tcp
-          FromPort: 80       # Neu: Standard HTTP
-          ToPort: 80
-          CidrIp: 0.0.0.0/0
-        - IpProtocol: tcp
-          FromPort: 8000     # Dein FastAPI Port
-          ToPort: 8000
-          CidrIp: 0.0.0.0/0
-
   BackendInstance:
     Type: AWS::EC2::Instance
     Properties:
       InstanceType: t3.micro
       ImageId: ami-0387413ed05eb20af # Amazon Linux 2023
-      IamInstanceProfile: !Ref BackendInstanceProfile # HIER wird die Rolle zugewiesen!
+      IamInstanceProfile: !Ref BackendInstanceProfile
       SecurityGroupIds:
         - !Ref BackendSecurityGroup
       UserData:
         Fn::Base64: !Sub |
           #!/bin/bash
 
-          # System aktualisieren
+          # Update system
           dnf update -y
 
-          # Docker Repository hinzufügen
-          # folgender Befehl unnötig, weil schon in AL2023 direkt enthalten
-          # dnf install -y amazon-linux-extras
-
-          # Docker installieren (AL2023)
+          # install and configure docker
           dnf install -y docker
-
           systemctl enable docker
           systemctl start docker
-
-          # ec2-user zu Docker-Gruppe hinzufügen
           usermod -aG docker ec2-user
 
-          # SSH Key konfigurieren
+          # SSH public key
           mkdir -p /home/ec2-user/.ssh
           echo "${SshPublicKey}" >> /home/ec2-user/.ssh/authorized_keys
           chmod 700 /home/ec2-user/.ssh
           chmod 600 /home/ec2-user/.ssh/authorized_keys
           chown -R ec2-user:ec2-user /home/ec2-user/.ssh
+
+          docker run -d \
+            --name xkcd-backend \
+            --restart always \
+            -p 8000:8000 \
+            -e MONGO_URI='${MongoUri}' \
+            -e MONGO_DB='${MongoDb}' \
+            -e MONGO_COLLECTION='${MongoCollection}' \
+            ${DockerImage}
 
   FrontendBucket:
     Type: AWS::S3::Bucket
@@ -125,8 +109,20 @@ Resources:
             Action: s3:GetObject
             Resource: !Sub "${FrontendBucket.Arn}/*"
 
-
-
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Origins:
+          - DomainName: !GetAtt FrontendBucket.RegionalDomainName
+            Id: S3Origin
+            S3OriginConfig: {}
+        Enabled: true
+        DefaultRootObject: index.html
+        DefaultCacheBehavior:
+          TargetOriginId: S3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6 # Managed CachingOptimized
 
 Outputs:
   BackendPublicIp:
