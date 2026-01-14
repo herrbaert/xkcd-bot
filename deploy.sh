@@ -14,8 +14,8 @@ if [ -z "$MONGO_URI" ] || [ -z "$MONGO_DB" ] || [ -z "$MONGO_COLLECTION" ]; then
 fi
 
 # Get AWS and Docker Variables
-AWS_ACCOUT_ID=$(aws sts get-caller-identity --query Account --output text)
-if [ -z "$AWS_ACCOUT_ID" ]; then
+AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+if [ -z "$AWS_ACCOUNT_ID" ]; then
   echo "AWS CLI nicht verbunden. Bitte ~/.aws/credentials anpassen oder 'aws sso login' ausführen"
   exit 3
 fi
@@ -24,7 +24,7 @@ test -n "$ECR_REPO" || ECR_REPO="xkcd-backend"
 test -n "$IMAGE_TAG" || IMAGE_TAG="latest"
 DOCKER_IMAGE="${ECR_REPO}:${IMAGE_TAG}"
 test -n "$AWS_REGION" || AWS_REGION=$(aws configure get region)
-ECR_REGISTRY="${AWS_ACCOUT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
 ECR_IMAGE="${ECR_REGISTRY}/${DOCKER_IMAGE}"
 
 # SSH key pair for backend instance
@@ -63,16 +63,16 @@ docker push "$ECR_IMAGE"
 
 # Run Container on EC2 instance:
 scp -o StrictHostKeyChecking=no -i "$SSH_KEY_FILE" ".env" ec2-user@"$EC2_IP":~/.env
-ssh -o StrictHostKeyChecking=no ec2-user@"$EC2_IP" -i "$SSH_KEY_FILE" << 'EOF'
+ssh -o StrictHostKeyChecking=no -i "$SSH_KEY_FILE" ec2-user@"$EC2_IP" << EOF
   chmod 600 ~/.env
-  aws ecr get-login-password --region "$AWS_REGION" | \
+  aws ecr get-login-password --region "$AWS_REGION" | \\
   docker login --username AWS --password-stdin "$ECR_REGISTRY"
-  docker run -d \
-    --name xkcd-backend \
-    --restart always \
-    -p 8000:8000 \
-    --env-file ~/.env \
-    ${ECR_IMAGE}
+  docker run -d \\
+    --name xkcd-backend \\
+    --restart always \\
+    -p 8000:8000 \\
+    --env-file ~/.env \\
+    "$ECR_IMAGE"
 EOF
 
 BUCKET=$(aws cloudformation describe-stacks \

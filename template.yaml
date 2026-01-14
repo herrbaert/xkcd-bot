@@ -13,7 +13,7 @@ Resources:
   BackendECRRepository:
     Type: AWS::ECR::Repository
     Properties:
-      EmpyOnDelete: true
+      EmptyOnDelete: true
       RepositoryName: !Ref EcrRepo
       ImageTagMutability: MUTABLE # only for proof-of-concept
 
