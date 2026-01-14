@@ -20,18 +20,18 @@ if [ -z "$AWS_ACCOUT_ID" ]; then
   exit 3
 fi
 
-test -n "$DOCKER_REGISTRY" || DOCKER_REGISTRY="xkcd-backend"
+test -n "$ECR_REPOSITORY" || ECR_REPOSITORY="xkcd-backend"
 test -n "$AWS_REGION" || AWS_REGION=$(aws configure get region)
-ECR_URL="${AWS_ACCOUT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
-DOCKER_IMAGE="${ECR_URL}/${DOCKER_REGISTRY}:latest"
+ECR_REGISTRY="${AWS_ACCOUT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+DOCKER_IMAGE="${ECR_REGISTRY}/${ECR_REPOSITORY}:latest"
 
 # Build Docker Image and Push to repo
 
 aws ecr create-repository \
-  --repository-name "$DOCKER_REGISTRY" \
+  --repository-name "$ECR_REPOSITORY" \
   --region "$AWS_REGION"
-aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$ECR_URL"
-docker build -t xkcd-backend:latest
+aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$ECR_REGISTRY"
+docker build -t xkcd-backend:latest .
 docker tag xkcd-backend:latest "$DOCKER_IMAGE"
 docker push "$DOCKER_IMAGE"
 
@@ -46,6 +46,7 @@ fi
 aws cloudformation deploy \
   --template-file template.yaml \
   --stack-name xkcd-bot-stack \
+  --region "$AWS_REGION" \
   --parameter-overrides SshPublicKey="$(cat ${SSH_KEY_FILE}.pub)" \
     MongoUri="$MONGO_URI" \
     MongoDb="$MONGO_DB" \
@@ -69,4 +70,11 @@ BUCKET=$(aws cloudformation describe-stacks \
 aws s3 sync frontend/ s3://${BUCKET}/ --delete
 
 echo "Your Website:"
-echo "http://${BUCKET}.s3-website.${AWS_REGION}.amazonaws.com
+echo "http://${BUCKET}.s3-website.${AWS_REGION}.amazonaws.com"
+
+echo "CloudFront URL (HTTPS):"
+aws cloudformation describe-stacks \
+  --stack-name xkcd-bot-stack \
+  --region "$AWS_REGION" \
+  --query "Stacks[0].Outputs[?OutputKey=='CloudFrontUrl'].OutputValue" \
+  --output text

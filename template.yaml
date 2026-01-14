@@ -42,6 +42,18 @@ Resources:
             Action: sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore # Allows connection via Session Manager in Console
+      Policies:
+        - PolicyName: ECRPullAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ecr:GetAuthorizationToken
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:BatchGetImage
+                Resource: "*"
 
   BackendInstanceProfile:
     Type: AWS::IAM::InstanceProfile
@@ -133,3 +145,6 @@ Outputs:
 
   BucketName:
     Value: !Ref FrontendBucket
+
+  CloudFrontUrl:
+    Value: !Sub "https://${CloudFrontDistribution.DomainName}"
