@@ -30,23 +30,25 @@ import time
 import argparse
 import sys
 
-# .env laden (Pfad hier ist relativ zum Projekt; kann angepasst werden)
-load_dotenv()
 
-# Konfigurationswerte aus der Umgebung lesen
-MONGO_URI = os.getenv("MONGO_URI")
-MONGO_DB = os.getenv("MONGO_DB")
-MONGO_COLLECTION = os.getenv("MONGO_COLLECTION")
+def get_mongo_collection():
+  # .env laden (Pfad hier ist relativ zum Projekt; kann angepasst werden)
+  load_dotenv()
 
-# Sicherheitsprüfung: Ohne diese Variablen macht das Programm keinen Sinn
-if not (MONGO_URI and MONGO_DB and MONGO_COLLECTION):
-    raise RuntimeError("Required env vars missing: MONGO_URI, MONGO_DB, MONGO_COLLECTION")
+  # Konfigurationswerte aus der Umgebung lesen
+  MONGO_URI = os.getenv("MONGO_URI")
+  MONGO_DB = os.getenv("MONGO_DB")
+  MONGO_COLLECTION = os.getenv("MONGO_COLLECTION")
 
-# MongoDB-Client initialisieren und die gewählte Collection referenzieren.
-# Die Verbindung bleibt während der Laufzeit offen; das ist für kleine Scraper-Tasks in Ordnung.
-client = MongoClient(MONGO_URI)
-db = client[MONGO_DB]
-collection = db[MONGO_COLLECTION]
+  # Sicherheitsprüfung: Ohne diese Variablen macht das Programm keinen Sinn
+  if not (MONGO_URI and MONGO_DB and MONGO_COLLECTION):
+      raise RuntimeError("Required env vars missing: MONGO_URI, MONGO_DB, MONGO_COLLECTION")
+
+  # MongoDB-Client initialisieren und die gewählte Collection referenzieren.
+  global client, collection
+  client = MongoClient(MONGO_URI)
+  db = client[MONGO_DB]
+  collection = db[MONGO_COLLECTION]
 
 
 def get_latest_comic_number() -> int:
@@ -209,7 +211,15 @@ def add_transcript_to_comic(num: int, transcript: str):
         {"$set": {"transcript": transcript}}
     )
 
-def add_transcripts(replace: bool = False, comics: list[int] | None = None, start: int | None = None, end: int | None = None):
+def add_transcripts(
+        replace: bool = False,
+        comics: list[int] | None = None,
+        start: int | None = None,
+        end: int | None = None,
+        delay: float | None = None):
+
+    if delay is None:
+        delay = 0.3
     if comics is None:
         if not replace:
             comics = get_all_comics_without_transcript()
@@ -227,6 +237,7 @@ def add_transcripts(replace: bool = False, comics: list[int] | None = None, star
             print(f"Added transcript to comic {num}")
         else:
             print(f"No transcript found for comic {num}")
+        time.sleep(delay)
 
 def download_comics(
         start: int | None = None,
@@ -299,18 +310,30 @@ if __name__ == "__main__":
     if len(sys.argv) == 2 and " " in sys.argv[1]:
         sys.argv = [sys.argv[0]] + sys.argv[1].split()
     parser = argparse.ArgumentParser(description="xkcd scraper")
+    parser.add_argument("--only", type=int, help="Replace this comic('s transcript)")
     parser.add_argument("--start", type=int, help="Start comic number (inclusive). If omitted, uses next after highest in DB")
     parser.add_argument("--end", type=int, help="End comic number (inclusive). If omitted, uses latest comic")
-    parser.add_argument("--replace", dest="replace", action="store_true", help="Skip comics already in DB")
+    parser.add_argument("--replace", action="store_true", help="Skip comics already in DB")
     parser.add_argument("--delay", type=float, help="Delay in seconds between requests")
     parser.add_argument("--update", action="store_true", help="Fetch and add transcripts from explainxkcd.com")
     args = parser.parse_args()
 
+    get_mongo_collection()
     print("Setup fertig!")
     # print(args)
 
+    if args.only:
+        replace = True
+        start = end = args.only
+    else:
+        replace = args.replace
+        start = args.start
+        end = args.end
+
     # Download-Loop mit den übergebenen Optionen starten
     if args.update:
-        add_transcripts(replace=args.replace, start=args.start, end=args.end)
+        add_transcripts(replace=replace, start=start, end=end, delay=args.delay)
     else:
-        download_comics(start=args.start, end=args.end, replace=args.replace, delay=args.delay)
+        download_comics(start=start, end=end, replace=replace, delay=args.delay)
+
+    client.close()
