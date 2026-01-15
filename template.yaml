@@ -115,20 +115,69 @@ Resources:
             Action: s3:GetObject
             Resource: !Sub "${FrontendBucket.Arn}/*"
 
+  ApiPathRewriteFunction:
+    Type: AWS::CloudFront::Function
+    Properties:
+      Name: xkcdbot-api-path-rewrite
+      FunctionConfig:
+        Comment: Routes from /api/* to backend
+        Runtime: cloudfront-js-2.0
+      AutoPublish: true
+      FunctionCode: !Sub |
+        function handler(event) {
+          var request = event.request;
+
+          // Check if request path starts with /api/
+          if (request.uri.startsWith('/api/')) {
+            // Remove /api prefix before sending to backend
+            request.uri = request.uri.replace(/^\/api/, '');
+
+            // Also handle the case where we get just /api
+            if (request.uri === '') {
+              request.uri = '/';
+            }
+          }
+
+          return request;
+        }
+
   CloudFrontDistribution:
     Type: AWS::CloudFront::Distribution
     Properties:
       DistributionConfig:
         Origins:
+          # Frontend S3
           - DomainName: !GetAtt FrontendBucket.RegionalDomainName
             Id: S3Origin
             S3OriginConfig: {}
-        Enabled: true
-        DefaultRootObject: index.html
+          # Backend EC2
+          - DomainName: !Sub "${BackendInstance.PublicDnsName}:8000"
+            Id: BackendOrigin
+            CustomOriginConfig:
+            HTTPPort: 8000
+            HTTPSPort: 443
+            OriginProtocolPolicy: http-only  # EC2 uses HTTP, CloudFront uses HTTPS to user
+            OriginSSLProtocols:
+              - TLSv1.2
+        # Frontend files
         DefaultCacheBehavior:
           TargetOriginId: S3Origin
           ViewerProtocolPolicy: redirect-to-https
-          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6 # Managed CachingOptimized
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6 # CachingOptimized
+          AllowedMethods: ["GET", "HEAD"]
+        # All /api routes will point to backend
+        CacheBehaviors:
+          - PathPattern: /api/*
+            TargetOriginId: BackendOrigin
+            ViewerProtocolPolicy: redirect-to-https
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad # Cache disabled for API requests
+            OriginRequestPolicyId: 216adef6-5c7f-47e4-b989-5492eafa07d3  # AllViewer
+            AllowedMethods: ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
+            FunctionAssociations:
+              - EventType: viewer-request
+                FunctionARN: !GetAtt ApiPathRewriteFunction.FunctionMetadata.FunctionARN
+        Enabled: true
+        DefaultRootObject: index.html
 
 Outputs:
   BackendPublicIp:

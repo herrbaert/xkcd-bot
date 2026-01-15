@@ -72,9 +72,7 @@ ssh -o StrictHostKeyChecking=no -i "$SSH_KEY_FILE" ec2-user@"$EC2_IP" << EOF
     --name xkcd-backend \\
     --restart always \\
     -p 8000:8000 \\
-    -e MONGO_URI="$MONGO_URI" \\
-    -e MONGO_DB="$MONGO_DB" \\
-    -e MONGO_COLLECTION="$MONGO_COLLECTION" \\
+    --env-file ~/.env \\
     "$ECR_IMAGE"
 EOF
 

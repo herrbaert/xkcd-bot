@@ -20,10 +20,11 @@ import re
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pymongo import MongoClient, TEXT
-# from dotenv import load_dotenv
+from dotenv import load_dotenv
+import atexit
 
 # .env laden
-# load_dotenv()
+load_dotenv()
 
 # Konfiguration
 MONGO_URI = os.getenv("MONGO_URI")
@@ -37,6 +38,11 @@ if not (MONGO_URI and MONGO_DB and MONGO_COLLECTION):
 client = MongoClient(MONGO_URI)
 db = client[MONGO_DB]
 collection = db[MONGO_COLLECTION]
+
+@atexit.register
+def close_connection():
+    client.close()
+    print("DB connection closed.")
 
 # Funktion, die sicherstellt, dass ein Text-Index existiert
 # Wir überprüfen vorhandene Indizes und erstellen/überschreiben nur, wenn über env var angefordert.
@@ -78,7 +84,7 @@ def _ensure_text_index():
 _ensure_text_index()
 
 # FastAPI App
-app = FastAPI(title="xkcd Comic API - MVP", version="0.1.0")
+app = FastAPI(title="xkcd Comic API", version="1.0.0")
 
 # CORS aktivieren (für Frontend)
 app.add_middleware(

@@ -1,4 +1,14 @@
-const API_BASE_URL = "http://localhost:8000";
+const API_BASE_URL = (() => {
+  if (typeof window !== 'undefined') {
+    // Browser environment
+    if (window.location.hostname === 'localhost' ||
+        window.location.hostname.includes('127.0.0.1')) {
+      return "http://localhost:8000";
+    }
+    return "/api";  // Production (CloudFront)
+  }
+  return "/api";  // Default fallback
+})();
 
 const searchForm = document.getElementById("searchForm");
 const searchInput = document.getElementById("searchInput");
@@ -163,7 +173,7 @@ function displayResults(comics) {
                         <strong>Characters:</strong>
                         <span class="characters-text">${escapeHtml(comic.characters ? comic.characters.join(", ") : "Keine Characters angegeben")}</span>
                     </div>
-                    
+
                     <button class="edit-button" data-comic-num="${comic.num}" aria-label="Characters bearbeiten">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
@@ -173,7 +183,7 @@ function displayResults(comics) {
                 `;
 
     resultsDiv.appendChild(card);
-    
+
     // Add event listener for edit button
     const editBtn = card.querySelector('.edit-button');
     editBtn.addEventListener('click', () => openEditDialog(comic));
@@ -184,14 +194,14 @@ function openEditDialog(comic) {
   const characterDiv = document.querySelector(`.comic-characters[data-comic-num="${comic.num}"]`);
   const textSpan = characterDiv.querySelector('.characters-text');
   const editBtn = document.querySelector(`.edit-button[data-comic-num="${comic.num}"]`);
-  
+
   // Check if already in edit mode
   if (characterDiv.querySelector('.edit-mode')) {
     return;
   }
-  
+
   const currentCharacters = comic.characters || "";
-  
+
   // Create edit interface
   const editContainer = document.createElement('div');
   editContainer.className = 'edit-mode';
@@ -202,39 +212,39 @@ function openEditDialog(comic) {
       <button class="cancel-btn">Abbrechen</button>
     </div>
   `;
-  
+
   // Hide text and edit button
   textSpan.style.display = 'none';
   editBtn.style.display = 'none';
-  
+
   // Add edit container
   characterDiv.appendChild(editContainer);
-  
+
   const input = editContainer.querySelector('.edit-input');
   const saveBtn = editContainer.querySelector('.save-btn');
   const cancelBtn = editContainer.querySelector('.cancel-btn');
-  
+
   // Focus input
   input.focus();
   input.select();
-  
+
   // Save handler
   const saveHandler = () => {
     const newCharacters = input.value.trim().split(',').map(s => s.trim()).filter(s => s.length > 0);
     updateCharacters(comic.num, newCharacters);
     exitEditMode();
   };
-  
+
   // Cancel handler
   const exitEditMode = () => {
     editContainer.remove();
     textSpan.style.display = '';
     editBtn.style.display = '';
   };
-  
+
   saveBtn.addEventListener('click', saveHandler);
   cancelBtn.addEventListener('click', exitEditMode);
-  
+
   // Save on Enter
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
@@ -265,7 +275,7 @@ async function updateCharacters(comicNum, characters) {
       const textSpan = characterDiv.querySelector('.characters-text');
       textSpan.textContent = characters || "Keine Characters angegeben";
     }
-    
+
     alert('Characters erfolgreich aktualisiert!');
   } catch (err) {
     alert(`Fehler beim Aktualisieren: ${err.message}`);
