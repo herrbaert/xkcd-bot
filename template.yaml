@@ -154,11 +154,11 @@ Resources:
           - DomainName: !Sub "${BackendInstance.PublicDnsName}:8000"
             Id: BackendOrigin
             CustomOriginConfig:
-            HTTPPort: 8000
-            HTTPSPort: 443
-            OriginProtocolPolicy: http-only  # EC2 uses HTTP, CloudFront uses HTTPS to user
-            OriginSSLProtocols:
-              - TLSv1.2
+              HTTPPort: 8000
+              HTTPSPort: 443
+              OriginProtocolPolicy: http-only  # EC2 uses HTTP, CloudFront uses HTTPS to user
+              OriginSSLProtocols:
+                - TLSv1.2
         # Frontend files
         DefaultCacheBehavior:
           TargetOriginId: S3Origin
