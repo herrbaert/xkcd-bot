@@ -121,7 +121,7 @@ Resources:
       Name: xkcdbot-api-path-rewrite
       FunctionConfig:
         Comment: Routes from /api/* to backend
-        Runtime: cloudfront-js-2.0
+        Runtime: cloudfront-js-1.0
       AutoPublish: true
       FunctionCode: !Sub |
         function handler(event) {
@@ -151,7 +151,7 @@ Resources:
             Id: S3Origin
             S3OriginConfig: {}
           # Backend EC2
-          - DomainName: !Sub "${BackendInstance.PublicDnsName}:8000"
+          - DomainName: !GetAtt BackendInstance.PublicDnsName
             Id: BackendOrigin
             CustomOriginConfig:
               HTTPPort: 8000
@@ -164,7 +164,7 @@ Resources:
           TargetOriginId: S3Origin
           ViewerProtocolPolicy: redirect-to-https
           CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6 # CachingOptimized
-          AllowedMethods: ["GET", "HEAD"]
+          AllowedMethods: ["GET", "HEAD", "OPTIONS"]
         # All /api routes will point to backend
         CacheBehaviors:
           - PathPattern: /api/*
