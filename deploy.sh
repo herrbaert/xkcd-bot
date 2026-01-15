@@ -28,7 +28,7 @@ ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
 ECR_IMAGE="${ECR_REGISTRY}/${DOCKER_IMAGE}"
 
 # SSH key pair for backend instance
-test -n "$SSH_KEY_FILE" || SSH_KEY_FILE='~/.ssh/id_rsa_backend-xkcdbot'
+test -n "$SSH_KEY_FILE" || SSH_KEY_FILE='.env.d/id_rsa_xkcdbot'
 if [ ! -f $SSH_KEY_FILE ]; then
   ssh-keygen -t rsa -b 4096 -f "$SSH_KEY_FILE" -C "xkcdBot-deploy" -N ""
 fi
@@ -65,13 +65,16 @@ docker push "$ECR_IMAGE"
 scp -o StrictHostKeyChecking=no -i "$SSH_KEY_FILE" ".env" ec2-user@"$EC2_IP":~/.env
 ssh -o StrictHostKeyChecking=no -i "$SSH_KEY_FILE" ec2-user@"$EC2_IP" << EOF
   chmod 600 ~/.env
+  source ~/.env
   aws ecr get-login-password --region "$AWS_REGION" | \\
   docker login --username AWS --password-stdin "$ECR_REGISTRY"
   docker run -d \\
     --name xkcd-backend \\
     --restart always \\
     -p 8000:8000 \\
-    --env-file ~/.env \\
+    -e MONGO_URI="$MONGO_URI" \\
+    -e MONGO_DB="$MONGO_DB" \\
+    -e MONGO_COLLECTION="$MONGO_COLLECTION" \\
     "$ECR_IMAGE"
 EOF
 
