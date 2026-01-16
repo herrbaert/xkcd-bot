@@ -200,13 +200,13 @@ function openEditDialog(comic) {
     return;
   }
 
-  const currentCharacters = comic.characters || "";
+  const currentCharacters = comic.characters || [];
 
   // Create edit interface
   const editContainer = document.createElement('div');
   editContainer.className = 'edit-mode';
   editContainer.innerHTML = `
-    <input type="text" class="edit-input" value="${escapeHtml(currentCharacters)}" placeholder="Characters eingeben (Komma-getrennt)">
+    <input type="text" class="edit-input" value="${escapeHtml(currentCharacters.join(", "))}" placeholder="Characters eingeben (Komma-getrennt)">
     <div class="edit-buttons">
       <button class="save-btn">Speichern</button>
       <button class="cancel-btn">Abbrechen</button>
@@ -231,6 +231,7 @@ function openEditDialog(comic) {
   // Save handler
   const saveHandler = () => {
     const newCharacters = input.value.trim().split(',').map(s => s.trim()).filter(s => s.length > 0);
+    comic.characters = newCharacters;
     updateCharacters(comic.num, newCharacters);
     exitEditMode();
   };
@@ -273,10 +274,10 @@ async function updateCharacters(comicNum, characters) {
     const characterDiv = document.querySelector(`.comic-characters[data-comic-num="${comicNum}"]`);
     if (characterDiv) {
       const textSpan = characterDiv.querySelector('.characters-text');
-      textSpan.textContent = characters || "Keine Characters angegeben";
+      textSpan.textContent = characters.join(", ") || "Keine Characters angegeben";
     }
 
-    alert('Characters erfolgreich aktualisiert!');
+    // alert('Characters erfolgreich aktualisiert!');
   } catch (err) {
     alert(`Fehler beim Aktualisieren: ${err.message}`);
     console.error('Update error:', err);
