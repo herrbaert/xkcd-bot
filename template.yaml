@@ -1,0 +1,193 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: EC2 instance for backend with Docker and SSH access and frontend via s3 bucket
+
+Parameters:
+  SshPublicKey:
+    Type: String
+    Description: Public SSH key for EC2 access
+  EcrRepo:
+    Type: String
+    Default: "xkcd-backend"
+
+Resources:
+  BackendECRRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      EmptyOnDelete: true
+      RepositoryName: !Ref EcrRepo
+      ImageTagMutability: MUTABLE # only for proof-of-concept
+
+  BackendSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow SSH and backend port
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 8000
+          ToPort: 8000
+          CidrIp: 0.0.0.0/0
+
+  BackendInstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore # Allows connection via Session Manager in Console
+      Policies:
+        - PolicyName: ECRPullAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: ecr:GetAuthorizationToken
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:BatchGetImage
+                Resource: !GetAtt BackendECRRepository.Arn
+
+  BackendInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref BackendInstanceRole
+
+  BackendInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t3.micro
+      ImageId: ami-0387413ed05eb20af # Amazon Linux 2023
+      IamInstanceProfile: !Ref BackendInstanceProfile
+      SecurityGroupIds:
+        - !Ref BackendSecurityGroup
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+
+          # Update system
+          dnf update -y
+
+          # install and configure docker
+          dnf install -y docker
+          systemctl enable docker
+          systemctl start docker
+          usermod -aG docker ec2-user
+
+          # SSH public key
+          mkdir -p /home/ec2-user/.ssh
+          echo "${SshPublicKey}" >> /home/ec2-user/.ssh/authorized_keys
+          chmod 700 /home/ec2-user/.ssh
+          chmod 600 /home/ec2-user/.ssh/authorized_keys
+          chown -R ec2-user:ec2-user /home/ec2-user/.ssh
+
+  FrontendBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        # ErrorDocument: error.html
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: false
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: false
+
+  BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref FrontendBucket
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal: "*"
+            Action: s3:GetObject
+            Resource: !Sub "${FrontendBucket.Arn}/*"
+
+  ApiPathRewriteFunction:
+    Type: AWS::CloudFront::Function
+    Properties:
+      Name: xkcdbot-api-path-rewrite
+      FunctionConfig:
+        Comment: Routes from /api/* to backend
+        Runtime: cloudfront-js-1.0
+      AutoPublish: true
+      FunctionCode: !Sub |
+        function handler(event) {
+          var request = event.request;
+
+          // Check if request path starts with /api/
+          if (request.uri.startsWith('/api/')) {
+            // Remove /api prefix before sending to backend
+            request.uri = request.uri.replace(/^\/api/, '');
+
+            // Also handle the case where we get just /api
+            if (request.uri === '') {
+              request.uri = '/';
+            }
+          }
+
+          return request;
+        }
+
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Origins:
+          # Frontend S3
+          - DomainName: !GetAtt FrontendBucket.RegionalDomainName
+            Id: S3Origin
+            S3OriginConfig: {}
+          # Backend EC2
+          - DomainName: !GetAtt BackendInstance.PublicDnsName
+            Id: BackendOrigin
+            CustomOriginConfig:
+              HTTPPort: 8000
+              HTTPSPort: 443
+              OriginProtocolPolicy: http-only  # EC2 uses HTTP, CloudFront uses HTTPS to user
+              OriginSSLProtocols:
+                - TLSv1.2
+        # Frontend files
+        DefaultCacheBehavior:
+          TargetOriginId: S3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6 # CachingOptimized
+          AllowedMethods: ["GET", "HEAD", "OPTIONS"]
+        # All /api routes will point to backend
+        CacheBehaviors:
+          - PathPattern: /api/*
+            TargetOriginId: BackendOrigin
+            ViewerProtocolPolicy: redirect-to-https
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad # Cache disabled for API requests
+            OriginRequestPolicyId: 216adef6-5c7f-47e4-b989-5492eafa07d3  # AllViewer
+            AllowedMethods: ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
+            FunctionAssociations:
+              - EventType: viewer-request
+                FunctionARN: !GetAtt ApiPathRewriteFunction.FunctionMetadata.FunctionARN
+        Enabled: true
+        DefaultRootObject: index.html
+
+Outputs:
+  BackendPublicIp:
+    Value: !GetAtt BackendInstance.PublicIp
+
+  BackendPublicDns:
+    Value: !GetAtt BackendInstance.PublicDnsName
+
+  BucketName:
+    Value: !Ref FrontendBucket
+
+  CloudFrontUrl:
+    Value: !Sub "https://${CloudFrontDistribution.DomainName}"
