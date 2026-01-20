@@ -12,6 +12,7 @@ const API_BASE_URL = (() => {
 
 const searchForm = document.getElementById("searchForm");
 const searchInput = document.getElementById("searchInput");
+const refineCharacter = document.getElementById("refineCharacter");
 const resultsDiv = document.getElementById("results");
 const resultsInfo = document.getElementById("resultsInfo");
 const loadingDiv = document.getElementById("loading");
@@ -61,10 +62,16 @@ if (refineToggleBtn && refinePanel) {
 
 searchForm.addEventListener("submit", async (e) => {
   e.preventDefault();
-  const query = searchInput.value.trim();
-  if (!query) return;
+  const searchText = searchInput.value.trim();
+  // Charaktere von kommagetrennt in ein Array umwandeln
+  const characters = refineCharacter.value.trim().split(",").map(s => s.trim()).filter(s => s.length > 0);
+  const minDate = document.getElementById("refineDateFrom").value;
+  const maxDate = document.getElementById("refineDateTo").value;
+  const strict = document.getElementById("refineInclusive").checked;
 
-  await searchComics(query);
+  if (!searchText) return;
+
+  await searchComics(searchText, characters, minDate || null, maxDate || null, strict);
 });
 
 randomButton.addEventListener("click", async () => {
@@ -74,6 +81,7 @@ randomButton.addEventListener("click", async () => {
 function resetSearch() {
   resultsDiv.innerHTML = "";
   resultsInfo.textContent = "";
+  refineCharacter.textContent = "";
   errorBox.style.display = "none";
   loadingDiv.style.display = "block";
 }
@@ -85,11 +93,27 @@ function showError(err) {
   console.error("Search error:", err);
 }
 
-async function searchComics(query) {
+async function searchComics(searchText, characters=[], minDate=null, maxDate=null, strict=false) {
   resetSearch();
+  const searchQuery = [];
+  searchText = searchText.trim();
+  if (strict) {
+    const words = searchText.split(/\s+/).filter(s => s.length > 0);
+    for (const word of words) {
+      searchQuery.push(`q=${encodeURIComponent('"' + word + '"')}`);
+    }
+  } else {
+    searchQuery.push(`q=${encodeURIComponent(searchText)}`);
+  }
+  for (const character of characters) {
+    searchQuery.push(`c=${encodeURIComponent(character)}`);
+  }
+  if (minDate) searchQuery.push(`min=${encodeURIComponent(minDate)}`);
+  if (maxDate) searchQuery.push(`max=${encodeURIComponent(maxDate)}`);
+  if (searchQuery.length === 0) return;
   try {
     const response = await fetch(
-      `${API_BASE_URL}/comics/search?q=${encodeURIComponent(query)}`
+      `${API_BASE_URL}/comics/search?${searchQuery.join("&")}`
     );
 
     if (!response.ok) {
@@ -100,13 +124,13 @@ async function searchComics(query) {
     loadingDiv.style.display = "none";
 
     if (data.count === 0) {
-      resultsInfo.textContent = `Keine Ergebnisse für "${query}"`;
+      resultsInfo.textContent = `Keine Ergebnisse für "${searchText}"`;
       return;
     }
 
     resultsInfo.textContent = `${data.count} Ergebnis${
       data.count !== 1 ? "se" : ""
-    } für "${query}"`;
+    } für "${searchText}"`;
     displayResults(data.comics);
   } catch (err) {
     showError(err);
@@ -256,9 +280,9 @@ function openEditDialog(comic) {
   });
 }
 
-async function updateCharacters(comicNum, characters) {
+async function updateCharacters(num, characters) {
   try {
-    const response = await fetch(`${API_BASE_URL}/comics/${comicNum}/characters`, {
+    const response = await fetch(`${API_BASE_URL}/comics/${num}/characters`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
@@ -271,7 +295,7 @@ async function updateCharacters(comicNum, characters) {
     }
 
     // Update the UI
-    const characterDiv = document.querySelector(`.comic-characters[data-comic-num="${comicNum}"]`);
+    const characterDiv = document.querySelector(`.comic-characters[data-comic-num="${num}"]`);
     if (characterDiv) {
       const textSpan = characterDiv.querySelector('.characters-text');
       textSpan.textContent = characters.join(", ") || "Keine Characters angegeben";

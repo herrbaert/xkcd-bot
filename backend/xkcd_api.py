@@ -118,20 +118,39 @@ async def root():
 @app.get("/comics/search")
 async def search_comics(
     q: List[str] = Query(..., min_length=1, description="Suchbegriffe; mehrfach erlaubt (z.B. ?q=foo&q=bar)"),
-    limit: int = Query(20, ge=1, le=100, description="Max. Ergebnisse")
-):
+    c: Optional[List[str]] = Query(None, description="Charaktere filtern; mehrfach erlaubt (z.B. ?c=Cueball&c=Megan)"),
+    min: Optional[str] = Query(None, regex=r"^\d{4}-\d{2}-\d{2}$", description="Startdatum (YYYY-MM-DD)"),
+    max: Optional[str] = Query(None, regex=r"^\d{4}-\d{2}-\d{2}$", description="Enddatum (YYYY-MM-DD)"),
+    lim: int = Query(0, ge=0, description="Max. Ergebnisse")
+    ):
     """
     Stichwortsuche in Comics (Titel, Alt-Text, Transcript).
     """
     # Verwende MongoDB $text-Suche über die vorher angelegte Text-Index
     # q kann mehrfach übergeben werden (z.B. ?q=foo&q=bar) und wird zu einem Suchstring kombiniert.
     # Beispiel: q=["foo", "bar"] -> search_string="foo bar"
+    search_dict = {}
     search_string = " ".join(q)
-    # Projektiere den textScore und sortiere danach
+    search_dict.update({"$text": {"$search": search_string}})
+
+    if c:
+        # Füge Charakter-Filter hinzu
+        search_dict.update({"characters": {"$all": c}})
+    if min or max:
+        # Füge Datumsfilter hinzu
+        date_filter = {}
+        if min:
+            date_filter["$gte"] = min
+        if max:
+            date_filter["$lte"] = max
+        search_dict.update({"date": date_filter})
+
     cursor = collection.find(
-        {"$text": {"$search": search_string}},
+        search_dict,
         {"score": {"$meta": "textScore"}}
-    ).sort([("score", {"$meta": "textScore"})]).limit(limit)
+    ).sort([("score", {"$meta": "textScore"}),
+            ("date", -1)]
+    ).limit(lim)
 
     results = list(cursor)
     comics = [clean_comic(doc) for doc in results]
